@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# environment variables
+.env.local
+.env*.local
+
+# WhatsApp session data
+.wwebjs_auth/
+.wwebjs_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
+
+# misc
+.vercel
