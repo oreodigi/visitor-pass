@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, ChangeEvent } from 'react';
+import { useMemo, useState, type ChangeEvent } from 'react';
 import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
+import { AdminHero, EmptyPanel, InlineStatus, MetricTile, SurfaceCard } from '@/app/admin/_components/admin-surface';
 
 interface ImportResult {
   total_rows: number;
@@ -12,241 +13,336 @@ interface ImportResult {
   errors: Array<{ row: number; reason: string }>;
 }
 
+type ImportMode = 'file' | 'paste';
+
+const SAMPLE_CSV = 'mobile\n9876543210\n8765432109\n7654321098';
+
 export default function ImportPage() {
   const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<ImportMode>('file');
+  const [pasteValue, setPasteValue] = useState('');
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
 
-  function handleEventChange(ev: EventSummary | null) {
-    setSelectedEvent(ev);
+  const eventId = selectedEvent?.id ?? null;
+  const normalizedPasteRows = useMemo(
+    () =>
+      pasteValue
+        .split(/\r?\n/)
+        .map((row) => row.trim())
+        .filter(Boolean),
+    [pasteValue]
+  );
+
+  function resetState() {
     setFile(null);
+    setPasteValue('');
     setResult(null);
     setError('');
   }
 
-  const eventId = selectedEvent?.id ?? null;
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    resetState();
+  }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0] || null;
-    setFile(f);
+    const nextFile = e.target.files?.[0] || null;
+    setFile(nextFile);
     setResult(null);
     setError('');
+  }
+
+  function buildImportFile(): File | null {
+    if (mode === 'file') return file;
+
+    if (normalizedPasteRows.length === 0) return null;
+
+    const csv = ['mobile', ...normalizedPasteRows].join('\n');
+    return new File([csv], 'contacts.csv', { type: 'text/csv' });
   }
 
   async function handleUpload() {
-    if (!file || !eventId) return;
-    const name = file.name.toLowerCase();
+    const importFile = buildImportFile();
+    if (!importFile || !eventId) return;
+
+    const name = importFile.name.toLowerCase();
     if (!name.endsWith('.csv') && !name.endsWith('.txt')) {
-      setError('Please upload a .csv or .txt file');
+      setError('Only .csv or .txt files are supported');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File too large (max 5MB)');
+    if (importFile.size > 5 * 1024 * 1024) {
+      setError('File too large. Keep it under 5MB.');
       return;
     }
 
     setUploading(true);
     setError('');
     setResult(null);
+
     try {
       const formData = new FormData();
       formData.append('event_id', eventId);
-      formData.append('file', file);
+      formData.append('file', importFile);
       const res = await fetch('/api/contacts/import', { method: 'POST', body: formData });
-      const d = await res.json();
-      if (!d.success) setError(d.error?.message || 'Import failed');
-      else setResult(d.data);
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error?.message || 'Import failed');
+        return;
+      }
+      setResult(data.data);
     } catch {
-      setError('Network error during upload');
+      setError('Network error during import');
     } finally {
       setUploading(false);
     }
   }
 
+  const totalReady = result?.inserted ?? 0;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)]">
       <EventSelectorBar onChange={handleEventChange} />
 
-      {!selectedEvent && (
-        <div className="flex flex-1 flex-col items-center justify-center px-4 py-20 text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
-        </div>
-      )}
-
-      {selectedEvent && (
-        <div className="mx-auto w-full max-w-2xl px-4 py-5 lg:py-8">
-          <div className="mb-6">
-            <h1 className="text-xl font-bold text-slate-900">Upload Contacts</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              Import mobile numbers into{' '}
-              <span className="font-semibold text-slate-700">{selectedEvent.title}</span>. Each contact receives a unique invitation link.
-            </p>
-          </div>
-
-          <div className="card mb-5 p-4 sm:p-5">
-            <h2 className="mb-3 text-sm font-semibold text-slate-800">CSV Format</h2>
-            <p className="mb-3 text-sm text-slate-600">
-              Your CSV must have a header row with a{' '}
-              <code className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-mono text-slate-700">mobile</code>{' '}
-              column. That is the only required column.
-            </p>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-700">
-              <div className="font-semibold text-brand-600">mobile</div>
-              <div>9876543210</div>
-              <div>8765432109</div>
-              <div>7654321098</div>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 lg:px-6 lg:py-8">
+        <AdminHero
+          eyebrow="Contact Import"
+          title={selectedEvent ? `Load contacts into ${selectedEvent.title}` : 'Upload contacts into your next event'}
+          description={
+            selectedEvent
+              ? 'Bring CSV files or paste mobile numbers directly. The system validates duplicates, creates invite links, and gets your outreach list ready for WhatsApp.'
+              : 'Select an event first. Once selected, you can bulk upload contacts, paste raw numbers, and move straight into invite sending.'
+          }
+          actions={
+            selectedEvent ? (
+              <>
+                <a
+                  href={`data:text/csv;charset=utf-8,${encodeURIComponent(SAMPLE_CSV)}`}
+                  download="sample-contacts.csv"
+                  className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
+                >
+                  Download Sample CSV
+                </a>
+                <a
+                  href="/admin/contacts"
+                  className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                >
+                  View Contacts
+                </a>
+              </>
+            ) : undefined
+          }
+        >
+          {selectedEvent ? (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <MetricTile label="Import Modes" value="2" note="CSV upload or direct paste list" tone="indigo" />
+              <MetricTile label="Validation" value="Auto" note="Invalid and duplicate numbers are filtered out before insert" tone="emerald" />
+              <MetricTile label="Output" value={totalReady} note="Contacts ready to receive invite links after import" tone="amber" />
             </div>
-            <p className="mt-3 text-xs text-slate-500">
-              Also accepts column aliases:{' '}
-              <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-mono">phone</code>,{' '}
-              <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-mono">contact</code>. Duplicate mobiles are skipped automatically.
-              After upload, invitation links are ready to send from the{' '}
-              <a href="/admin/contacts" className="font-medium text-brand-600 underline">Contacts page</a>.
-            </p>
-          </div>
+          ) : null}
+        </AdminHero>
 
-          <div className="card mb-5 p-4 sm:p-5">
-            <h2 className="mb-4 text-sm font-semibold text-slate-800">Upload File</h2>
-            <div className="space-y-4">
-              <div
-                className={`relative rounded-xl border-2 border-dashed p-6 text-center transition-colors sm:p-8 ${
-                  file ? 'border-brand-300 bg-brand-50/40' : 'border-slate-300 hover:border-brand-400 hover:bg-brand-50/20'
-                }`}
+        {!selectedEvent ? (
+          <EmptyPanel
+            title="Pick an event before importing"
+            description="This importer is event-aware. Select the event from the top bar first so contacts are attached to the right invite workflow."
+          />
+        ) : (
+          <div className="grid gap-6 xl:grid-cols-[1.35fr_0.9fr]">
+            <div className="space-y-6">
+              <SurfaceCard
+                eyebrow="Input Mode"
+                title="Upload your contact source"
+                description="Choose the fastest route. CSV is best for agency-style bulk operations. Paste mode is faster for last-minute lists from WhatsApp, spreadsheets, or call teams."
               >
-                <input
-                  type="file"
-                  accept=".csv,.txt"
-                  onChange={handleFileChange}
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                />
-                {file ? (
-                  <div>
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-brand-100">
-                      <svg className="h-5 w-5 text-brand-600" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-800">{file.name}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB · Tap to change file</p>
+                <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1">
+                  {([
+                    { key: 'file', label: 'CSV / TXT Upload' },
+                    { key: 'paste', label: 'Paste Numbers' },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setMode(item.key);
+                        setResult(null);
+                        setError('');
+                      }}
+                      className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                        mode === item.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+
+                {mode === 'file' ? (
+                  <div className="mt-5 rounded-[28px] border-2 border-dashed border-slate-300 bg-slate-50/80 p-5 text-center">
+                    <input type="file" accept=".csv,.txt" onChange={handleFileChange} className="hidden" id="contacts-file" />
+                    <label htmlFor="contacts-file" className="block cursor-pointer">
+                      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                        <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                        </svg>
+                      </div>
+                      <p className="mt-4 text-base font-semibold text-slate-900">
+                        {file ? file.name : 'Select a CSV or TXT file'}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        {file ? `${(file.size / 1024).toFixed(1)} KB ready to import` : 'Supports a single mobile column. Max size 5MB.'}
+                      </p>
+                    </label>
                   </div>
                 ) : (
-                  <div>
-                    <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-                      <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
+                  <div className="mt-5 space-y-3">
+                    <div className="rounded-[28px] border border-slate-200 bg-slate-50/80 p-4">
+                      <label className="input-label">Paste one mobile number per line</label>
+                      <textarea
+                        value={pasteValue}
+                        onChange={(e) => {
+                          setPasteValue(e.target.value);
+                          setResult(null);
+                          setError('');
+                        }}
+                        rows={10}
+                        className="input-field mt-2 resize-none font-mono text-sm"
+                        placeholder={'9876543210\n8765432109\n7654321098'}
+                      />
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <InlineStatus tone="indigo">{normalizedPasteRows.length} rows detected</InlineStatus>
+                        <InlineStatus tone="slate">CSV will be generated automatically</InlineStatus>
+                      </div>
                     </div>
-                    <p className="text-sm font-medium text-slate-600">Tap to select a CSV file</p>
-                    <p className="mt-0.5 text-xs text-slate-400">.csv or .txt · max 5MB</p>
                   </div>
                 )}
-              </div>
 
-              <button onClick={handleUpload} disabled={!file || uploading} className="btn-primary w-full">
-                {uploading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Importing...
-                  </span>
-                ) : 'Upload Contacts'}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              <svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-              </svg>
-              {error}
-            </div>
-          )}
-
-          {result && (
-            <div className="card p-4 sm:p-5">
-              <h2 className="mb-4 text-sm font-semibold text-slate-800">Import Results</h2>
-
-              <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center">
-                  <div className="text-xl font-bold tabular-nums text-slate-900">{result.total_rows}</div>
-                  <div className="mt-0.5 text-xs text-slate-500">Total Rows</div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={uploading || !buildImportFile()}
+                    className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {uploading ? 'Importing contacts...' : 'Run Import'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetState}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Reset
+                  </button>
                 </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center">
-                  <div className="text-xl font-bold tabular-nums text-emerald-700">{result.inserted}</div>
-                  <div className="mt-0.5 text-xs text-emerald-600">Imported</div>
-                </div>
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center">
-                  <div className="text-xl font-bold tabular-nums text-amber-700">{result.duplicates_skipped}</div>
-                  <div className="mt-0.5 text-xs text-amber-600">Duplicates</div>
-                </div>
-                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-center">
-                  <div className="text-xl font-bold tabular-nums text-red-700">{result.invalid_rows}</div>
-                  <div className="mt-0.5 text-xs text-red-600">Invalid</div>
-                </div>
-              </div>
+              </SurfaceCard>
 
-              {result.inserted > 0 && (
-                <div className="mb-4 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
-                  Successfully imported {result.inserted} contact{result.inserted !== 1 ? 's' : ''}.{' '}
-                  <a href="/admin/contacts" className="font-semibold underline">Send invitations →</a>
-                </div>
-              )}
+              {error ? (
+                <SurfaceCard title="Import blocked" description="Fix the issue below and retry the import.">
+                  <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm font-medium text-rose-700">
+                    {error}
+                  </div>
+                </SurfaceCard>
+              ) : null}
 
-              {result.errors.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Issues ({result.errors.length})</h3>
-                  <div className="max-h-60 overflow-y-auto rounded-xl border border-slate-200">
-                    <div className="hidden sm:block">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="table-header">
-                            <th className="w-16 px-3 py-2 text-left">Row</th>
-                            <th className="px-3 py-2 text-left">Issue</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {result.errors.map((err, i) => (
-                            <tr key={i} className="hover:bg-slate-50">
-                              <td className="px-3 py-2 font-mono text-slate-600">{err.row || '—'}</td>
-                              <td className="px-3 py-2 text-slate-700">{err.reason}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              {result ? (
+                <SurfaceCard
+                  eyebrow="Results"
+                  title="Import summary"
+                  description="This import is complete. Review the outcome, then move into invite sending or upload another batch."
+                >
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <MetricTile label="Rows Received" value={result.total_rows} note="Raw rows read from your source" tone="slate" />
+                    <MetricTile label="Imported" value={result.inserted} note="Fresh contacts now stored for this event" tone="emerald" />
+                    <MetricTile label="Duplicates" value={result.duplicates_skipped} note="Skipped because they already existed or repeated in the batch" tone="amber" />
+                    <MetricTile label="Invalid" value={result.invalid_rows} note="Rows rejected due to missing or invalid numbers" tone="rose" />
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-3 rounded-[24px] border border-indigo-200 bg-indigo-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-indigo-900">Import completed for {selectedEvent.title}</p>
+                      <p className="mt-1 text-sm text-indigo-700">
+                        {result.inserted > 0
+                          ? `${result.inserted} contacts are ready to receive invite links.`
+                          : 'No new contacts were added in this run.'}
+                      </p>
                     </div>
-                    <div className="divide-y divide-slate-100 sm:hidden">
-                      {result.errors.map((err, i) => (
-                        <div key={i} className="p-3">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Row {err.row || '—'}</p>
-                          <p className="mt-1 text-xs text-slate-700">{err.reason}</p>
-                        </div>
-                      ))}
+                    <div className="grid gap-2 sm:flex">
+                      <a href="/admin/contacts" className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                        Open Contacts
+                      </a>
+                      <a href="/admin/send-invites" className="inline-flex items-center justify-center rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-50">
+                        Go to Invite Sending
+                      </a>
                     </div>
                   </div>
-                </div>
-              )}
 
-              <div className="mt-4 border-t border-slate-100 pt-4">
-                <button
-                  onClick={() => {
-                    setFile(null);
-                    setResult(null);
-                    setError('');
-                  }}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 sm:w-auto"
-                >
-                  Upload Another File
-                </button>
-              </div>
+                  {result.errors.length > 0 ? (
+                    <div className="mt-5 rounded-[24px] border border-slate-200">
+                      <div className="border-b border-slate-100 px-4 py-3">
+                        <p className="text-sm font-semibold text-slate-900">Rows that need attention</p>
+                        <p className="mt-1 text-xs text-slate-500">Use this list to clean the source file before the next import.</p>
+                      </div>
+                      <div className="max-h-72 divide-y divide-slate-100 overflow-y-auto">
+                        {result.errors.map((item, index) => (
+                          <div key={`${item.row}-${index}`} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Row {item.row || '-'}</span>
+                            <span className="text-sm text-slate-700">{item.reason}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </SurfaceCard>
+              ) : null}
             </div>
-          )}
-        </div>
-      )}
+
+            <div className="space-y-6">
+              <SurfaceCard
+                eyebrow="Format"
+                title="Importer rules"
+                description="Keep the import source simple. The backend only needs a mobile column and it normalizes the number automatically."
+              >
+                <div className="rounded-2xl border border-slate-200 bg-slate-950 px-4 py-4 font-mono text-xs text-slate-100">
+                  <div className="text-emerald-300">mobile</div>
+                  <div>9876543210</div>
+                  <div>8765432109</div>
+                  <div>7654321098</div>
+                </div>
+                <div className="mt-4 space-y-3 text-sm text-slate-600">
+                  <p>Accepted aliases in CSV headers: <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">mobile</code>, <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">phone</code>, <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">contact</code>.</p>
+                  <p>Import is event-specific. Duplicate numbers for the same event are skipped automatically.</p>
+                  <p>Best practice: upload raw contacts first, then send from the contacts or bulk-send page after reviewing the imported list.</p>
+                </div>
+              </SurfaceCard>
+
+              <SurfaceCard
+                eyebrow="Ops Flow"
+                title="Recommended workflow"
+                description="Run this sequence to keep the invite funnel clean when your team is working across import, invite sending, and confirmation."
+              >
+                <div className="space-y-3">
+                  {[
+                    'Import or paste raw mobile numbers for the selected event.',
+                    'Review duplicates and invalid rows from the summary.',
+                    'Open contacts and spot-check the newest entries.',
+                    'Send invites from WhatsApp once the message template is finalized.',
+                    'Monitor confirmed visitors from the attendees screen.',
+                  ].map((step, index) => (
+                    <div key={step} className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                        {index + 1}
+                      </div>
+                      <p className="text-sm leading-6 text-slate-600">{step}</p>
+                    </div>
+                  ))}
+                </div>
+              </SurfaceCard>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import type {
   ContactStatus,
   WhatsAppInviteStatus,
 } from './enums';
+import type { PassStyleConfig } from '@/lib/pass-style-storage';
 
 // ── AUTH DTOs ─────────────────────────────────────────────
 
@@ -49,6 +50,7 @@ export interface CreateEventPayload {
   max_visitors?: number | null;
   vip_seats?: number;
   partners?: Array<{ name: string; logo_url: string | null }>;
+  pass_style?: PassStyleConfig | null;
 }
 
 export interface UpdateEventPayload extends Partial<CreateEventPayload> {
@@ -73,6 +75,7 @@ export interface EventResponse {
   max_visitors: number | null;
   vip_seats: number;
   partners: Array<{ name: string; logo_url: string | null }>;
+  pass_style?: PassStyleConfig | null;
   attendee_count?: number;
   checked_in_count?: number;
   created_at: string;

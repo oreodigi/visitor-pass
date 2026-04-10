@@ -28,6 +28,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
   const resolvedPartners = partners ?? event.partners ?? [];
   const name = attendee.name || 'Participant';
   const terms = event.pass_terms_conditions;
+  const style = event.pass_style;
 
   return (
     <div
@@ -36,7 +37,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
         height: `${imageHeight}px`,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: '#f5f5f4',
+        backgroundColor: style.surface_color,
         fontFamily: 'sans-serif',
         padding: '24px',
       }}
@@ -55,7 +56,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
         {/* Header */}
         <div
           style={{
-            backgroundColor: '#065f46',
+            background: `linear-gradient(135deg, ${style.primary_color}, ${style.secondary_color})`,
             padding: '24px 28px',
             display: 'flex',
             flexDirection: 'column',
@@ -76,10 +77,10 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
           <div
             style={{
               marginTop: '8px',
-              backgroundColor: 'rgba(255,255,255,0.15)',
+              backgroundColor: style.accent_color,
               borderRadius: '999px',
               padding: '3px 14px',
-              color: '#d1fae5',
+              color: '#ffffff',
               fontSize: '11px',
               fontWeight: 600,
               letterSpacing: '0.08em',
@@ -106,7 +107,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '9px', color: '#a8a29e', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Pass No.</div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#065f46', fontFamily: 'monospace', marginTop: '2px' }}>{attendee.pass_number}</div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: style.accent_color, fontFamily: 'monospace', marginTop: '2px' }}>{attendee.pass_number}</div>
           </div>
           {attendee.seat_number && (
             <div style={{ flex: 1 }}>
@@ -146,19 +147,19 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
           {event.support_contact_number && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{ fontSize: '14px' }}>📞</div>
-              <div style={{ fontSize: '12px', color: '#78716c' }}>Support: {event.support_contact_number}</div>
-            </div>
-          )}
-        </div>
+            <div style={{ fontSize: '12px', color: '#78716c' }}>Support: {event.support_contact_number}</div>
+          </div>
+        )}
+      </div>
 
         {event.footer_note && (
-          <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: '#fafaf9', padding: '10px 28px' }}>
+          <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: style.surface_color, padding: '10px 28px' }}>
             <div style={{ fontSize: '10px', color: '#a8a29e', textAlign: 'center' }}>{event.footer_note}</div>
           </div>
         )}
 
         {resolvedPartners.length > 0 && (
-          <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: '#fafaf9', padding: '10px 28px' }}>
+          <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: style.surface_color, padding: '10px 28px' }}>
             <div style={{ fontSize: '8px', fontWeight: 700, color: '#a8a29e', letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '8px' }}>
               Partners &amp; Sponsors
             </div>
@@ -179,7 +180,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
         )}
 
         {terms && (
-          <div style={{ borderTop: '1px solid #d6d3d1', backgroundColor: '#f5f5f4', padding: '12px 28px' }}>
+          <div style={{ borderTop: '1px solid #d6d3d1', backgroundColor: style.surface_color, padding: '12px 28px' }}>
             <div style={{ fontSize: '9px', fontWeight: 700, color: '#a8a29e', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
               Terms &amp; Conditions
             </div>

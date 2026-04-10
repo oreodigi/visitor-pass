@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { buildInviteWhatsAppLink, type EventContext } from '@/lib/whatsapp';
 import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
+import { AdminHero, EmptyPanel, InlineStatus, MetricTile, SurfaceCard } from '@/app/admin/_components/admin-surface';
 
 interface Contact {
   id: string;
@@ -26,11 +27,11 @@ interface PaginatedResponse {
 
 type StatusFilter = 'all' | 'uploaded' | 'invited' | 'confirmed';
 
-const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  uploaded: { label: 'Uploaded', cls: 'badge badge-slate' },
-  invited: { label: 'Invited', cls: 'badge badge-blue' },
-  confirmed: { label: 'Confirmed', cls: 'badge badge-green' },
-  cancelled: { label: 'Cancelled', cls: 'badge badge-red' },
+const STATUS_LABELS: Record<string, { label: string; tone: 'slate' | 'indigo' | 'emerald' | 'rose' }> = {
+  uploaded: { label: 'Uploaded', tone: 'slate' },
+  invited: { label: 'Invited', tone: 'indigo' },
+  confirmed: { label: 'Confirmed', tone: 'emerald' },
+  cancelled: { label: 'Cancelled', tone: 'rose' },
 };
 
 function formatStamp(value: string | null) {
@@ -67,6 +68,16 @@ export default function ContactsPage() {
   const currentPageIds = data?.contacts.map((c) => c.id) ?? [];
   const allOnPageSelected = currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
   const someOnPageSelected = currentPageIds.some((id) => selectedIds.has(id));
+  const selectedContacts = data?.contacts.filter((contact) => selectedIds.has(contact.id)) ?? [];
+
+  const currentPageStats = useMemo(() => {
+    const rows = data?.contacts ?? [];
+    return {
+      confirmed: rows.filter((row) => row.status === 'confirmed').length,
+      pendingSend: rows.filter((row) => row.status !== 'confirmed').length,
+      responded: rows.filter((row) => row.responded_at).length,
+    };
+  }, [data]);
 
   useEffect(() => {
     if (selectAllRef.current) {
@@ -131,8 +142,9 @@ export default function ContactsPage() {
       if (search.trim()) params.set('search', search.trim());
       if (statusFilter !== 'all') params.set('status_filter', statusFilter);
       const res = await fetch(`/api/contacts?${params}`);
-      const d = await res.json();
-      if (d.success) setData(d.data);
+      const response = await res.json();
+      if (response.success) setData(response.data);
+      else setMessage({ type: 'error', text: response.error?.message || 'Failed to load contacts' });
     } catch {
       setMessage({ type: 'error', text: 'Failed to load contacts' });
     } finally {
@@ -157,9 +169,9 @@ export default function ContactsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: contact.id, action: 'mark_invited' }),
       });
-      const d = await res.json();
-      if (d.success) fetchContacts();
-      else setMessage({ type: 'error', text: d.error?.message || 'Failed to update' });
+      const response = await res.json();
+      if (response.success) fetchContacts();
+      else setMessage({ type: 'error', text: response.error?.message || 'Failed to update contact' });
     } catch {
       setMessage({ type: 'error', text: 'Network error' });
     } finally {
@@ -183,14 +195,15 @@ export default function ContactsPage() {
           return fd;
         })(),
       });
-      const d = await res.json();
-      if (!d.success) {
-        setAddError(d.error?.message || 'Failed to add contact');
-      } else if (d.data.inserted === 0) {
-        setAddError(d.data.errors?.[0]?.reason || 'Mobile number already exists or is invalid');
+      const response = await res.json();
+      if (!response.success) {
+        setAddError(response.error?.message || 'Failed to add contact');
+      } else if (response.data.inserted === 0) {
+        setAddError(response.data.errors?.[0]?.reason || 'Mobile number already exists or is invalid');
       } else {
         setAddMobile('');
         setAddModalOpen(false);
+        setMessage({ type: 'success', text: 'Contact added successfully' });
         fetchContacts();
       }
     } catch {
@@ -215,13 +228,13 @@ export default function ContactsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [...selectedIds] }),
       });
-      const d = await res.json();
-      if (d.success) {
-        setMessage({ type: 'success', text: `Deleted ${d.data.deleted} contact(s)` });
+      const response = await res.json();
+      if (response.success) {
+        setMessage({ type: 'success', text: `Deleted ${response.data.deleted} contact(s)` });
         setSelectedIds(new Set());
         fetchContacts();
       } else {
-        setMessage({ type: 'error', text: d.error?.message || 'Failed to delete' });
+        setMessage({ type: 'error', text: response.error?.message || 'Failed to delete contacts' });
       }
     } catch {
       setMessage({ type: 'error', text: 'Network error' });
@@ -231,33 +244,34 @@ export default function ContactsPage() {
   }
 
   async function handleBulkSendInvites() {
-    if (!data) return;
-    const eligible = data.contacts.filter((c) => selectedIds.has(c.id) && c.status !== 'confirmed');
+    const eligible = selectedContacts.filter((contact) => contact.status !== 'confirmed');
     if (eligible.length === 0) {
-      setMessage({ type: 'error', text: 'No eligible contacts selected (confirmed contacts are skipped)' });
+      setMessage({ type: 'error', text: 'No eligible contacts selected. Confirmed contacts are skipped.' });
       return;
     }
 
     setBulkLoading(true);
     try {
       for (let i = 0; i < eligible.length; i += 1) {
-        const c = eligible[i];
-        const link = buildInviteWhatsAppLink(c.mobile, c.invitation_link, eventCtx);
+        const contact = eligible[i];
+        const link = buildInviteWhatsAppLink(contact.mobile, contact.invitation_link, eventCtx);
         window.open(link, '_blank', 'noopener,noreferrer');
         if (i < eligible.length - 1) {
-          await new Promise((r) => setTimeout(r, 400));
+          await new Promise((resolve) => setTimeout(resolve, 400));
         }
       }
       const res = await fetch('/api/contacts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: eligible.map((c) => c.id), action: 'bulk_mark_invited' }),
+        body: JSON.stringify({ ids: eligible.map((contact) => contact.id), action: 'bulk_mark_invited' }),
       });
-      const d = await res.json();
-      if (d.success) {
-        setMessage({ type: 'success', text: `Sent invites to ${eligible.length} contact(s)` });
+      const response = await res.json();
+      if (response.success) {
+        setMessage({ type: 'success', text: `Opened WhatsApp for ${eligible.length} contact(s)` });
         setSelectedIds(new Set());
         fetchContacts();
+      } else {
+        setMessage({ type: 'error', text: response.error?.message || 'Failed to update invite status' });
       }
     } catch {
       setMessage({ type: 'error', text: 'Failed to send invites' });
@@ -267,377 +281,325 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.08),_transparent_30%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)]">
       <EventSelectorBar onChange={handleEventChange} />
 
-      <div className="mx-auto w-full max-w-6xl px-4 py-5 lg:py-8">
-        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-slate-900">Contacts &amp; Invites</h1>
-            <p className="mt-0.5 text-sm text-slate-500">{data ? `${data.total} total` : 'Loading...'}</p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
-            <button
-              onClick={() => {
-                setAddModalOpen(true);
-                setAddMobile('');
-                setAddError('');
-                setTimeout(() => addInputRef.current?.focus(), 50);
-              }}
-              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Add Contact
-            </button>
-            <a
-              href="/admin/import"
-              className="btn-primary inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-sm"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
-                />
-              </svg>
-              Upload CSV
-            </a>
-          </div>
-        </div>
-
-        {message && (
-          <div
-            className={`mb-4 flex items-start gap-2.5 rounded-xl border px-4 py-3 text-sm ${
-              message.type === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-red-200 bg-red-50 text-red-700'
-            }`}
-          >
-            {message.text}
-            <button
-              onClick={() => setMessage(null)}
-              className="ml-auto -mr-1 text-current opacity-50 hover:opacity-100"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
-
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
-          <form onSubmit={handleSearch} className="flex flex-col gap-2 md:flex-row md:items-center">
-            <div className="flex flex-1 flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input-field w-full sm:max-w-sm"
-                placeholder="Search by mobile..."
-              />
-              <div className="grid grid-cols-2 gap-2 sm:flex">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 lg:px-6 lg:py-8">
+        <AdminHero
+          eyebrow="Contacts and Invites"
+          title={selectedEvent ? `${selectedEvent.title} contact desk` : 'Manage imported contacts and invite delivery'}
+          description={
+            selectedEvent
+              ? 'Review fresh imports, send individual or bulk invites, and track which contacts already confirmed attendance.'
+              : 'Choose an event first. This screen becomes the operating table for contact hygiene, invite sending, and response tracking.'
+          }
+          actions={
+            selectedEvent ? (
+              <>
                 <button
-                  type="submit"
-                  className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                >
-                  Search
-                </button>
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSearch('');
-                      setPage(1);
-                    }}
-                    className="rounded-lg px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1">
-              {(['all', 'uploaded', 'invited', 'confirmed'] as const).map((f) => (
-                <button
-                  key={f}
                   onClick={() => {
-                    setStatusFilter(f);
-                    setPage(1);
+                    setAddModalOpen(true);
+                    setAddMobile('');
+                    setAddError('');
+                    setTimeout(() => addInputRef.current?.focus(), 80);
                   }}
-                  className={`rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
-                    statusFilter === f ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-                  }`}
+                  className="inline-flex items-center justify-center rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
+                  Add Single Contact
                 </button>
-              ))}
+                <a href="/admin/import" className="inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">
+                  Open Importer
+                </a>
+              </>
+            ) : undefined
+          }
+        >
+          {selectedEvent ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricTile label="Total Contacts" value={data?.total ?? '...'} note="Rows currently stored for this event" tone="indigo" />
+              <MetricTile label="Confirmed" value={currentPageStats.confirmed} note="Confirmed visitors on this page snapshot" tone="emerald" />
+              <MetricTile label="Awaiting Send" value={currentPageStats.pendingSend} note="Contacts still eligible for invite sending" tone="amber" />
+              <MetricTile label="Selected" value={selectedIds.size} note="Bulk actions become available when contacts are selected" tone="slate" />
             </div>
-          </form>
-        </div>
+          ) : null}
+        </AdminHero>
 
-        {selectedIds.size > 0 && (
-          <div className="mb-3 flex flex-col gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 sm:flex-row sm:items-center">
-            <span className="text-sm font-medium text-brand-800">{selectedIds.size} selected</span>
-            <div className="grid grid-cols-1 gap-2 sm:ml-auto sm:flex sm:items-center">
-              <button
-                onClick={handleBulkSendInvites}
-                disabled={bulkLoading}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-              >
-                Send Invites
-              </button>
-              <button
-                onClick={handleBulkDelete}
-                disabled={bulkLoading}
-                className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-              >
-                Delete
-              </button>
-              <button
-                onClick={() => setSelectedIds(new Set())}
-                disabled={bulkLoading}
-                className="rounded-lg px-2.5 py-2 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="card overflow-hidden">
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="table-header">
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      ref={selectAllRef}
-                      type="checkbox"
-                      checked={allOnPageSelected}
-                      onChange={toggleAll}
-                      className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                      aria-label="Select all on page"
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left">Mobile</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Invited At</th>
-                  <th className="px-4 py-3 text-left">Responded At</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
-                      <div className="flex justify-center">
-                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
-                      </div>
-                    </td>
-                  </tr>
-                ) : data && data.contacts.length > 0 ? (
-                  data.contacts.map((c) => {
-                    const badge = STATUS_LABELS[c.status] || STATUS_LABELS.uploaded;
-                    const isSelected = selectedIds.has(c.id);
-                    return (
-                      <tr
-                        key={c.id}
-                        className={`transition-colors ${isSelected ? 'bg-brand-50/60' : 'hover:bg-slate-50'}`}
-                      >
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleOne(c.id)}
-                            className="h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                            aria-label={`Select ${c.mobile}`}
-                          />
-                        </td>
-                        <td className="px-4 py-3 font-mono text-sm font-medium text-slate-900">{c.mobile}</td>
-                        <td className="px-4 py-3">
-                          <span className={badge.cls}>{badge.label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500">{formatStamp(c.invited_at)}</td>
-                        <td className="px-4 py-3 text-xs text-slate-500">{formatStamp(c.responded_at)}</td>
-                        <td className="px-4 py-3 text-right">
-                          {c.status === 'confirmed' && c.attendee_id ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Confirmed
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => openInviteWhatsApp(c)}
-                              disabled={markingInvited === c.id}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-green-200 bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50"
-                              title="Send form link via WhatsApp Web"
-                            >
-                              Send Invite
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-slate-400">
-                      {search || statusFilter !== 'all'
-                        ? 'No contacts match your filters'
-                        : 'No contacts yet. Upload a CSV to get started.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="divide-y divide-slate-100 md:hidden">
-            {loading ? (
-              <div className="px-4 py-12 text-center">
-                <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
+        {!selectedEvent ? (
+          <EmptyPanel
+            title="Select an event to unlock contact operations"
+            description="The contact list, invite links, and bulk send actions all depend on the active event context from the top selector."
+          />
+        ) : (
+          <>
+            {message ? (
+              <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${message.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                {message.text}
               </div>
-            ) : data && data.contacts.length > 0 ? (
-              data.contacts.map((c) => {
-                const badge = STATUS_LABELS[c.status] || STATUS_LABELS.uploaded;
-                const isSelected = selectedIds.has(c.id);
-                return (
-                  <div key={c.id} className={`p-4 ${isSelected ? 'bg-brand-50/60' : 'bg-white'}`}>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleOne(c.id)}
-                        className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                        aria-label={`Select ${c.mobile}`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-mono text-sm font-semibold text-slate-900">{c.mobile}</p>
-                          <span className={badge.cls}>{badge.label}</span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Invited</p>
-                            <p className="mt-1">{formatStamp(c.invited_at)}</p>
+            ) : null}
+
+            <SurfaceCard
+              eyebrow="Filters"
+              title="Search and segment contacts"
+              description="Filter the event list by status or mobile prefix, then use bulk actions to move faster."
+            >
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <form onSubmit={handleSearch} className="flex w-full flex-col gap-2 sm:flex-row xl:max-w-xl">
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="input-field w-full"
+                    placeholder="Search by mobile number"
+                  />
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <button type="submit" className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                      Search
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearch('');
+                        setPage(1);
+                      }}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </form>
+
+                <div className="flex flex-wrap gap-2">
+                  {(['all', 'uploaded', 'invited', 'confirmed'] as const).map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => {
+                        setStatusFilter(filter);
+                        setPage(1);
+                      }}
+                      className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] transition ${
+                        statusFilter === filter
+                          ? 'bg-slate-950 text-white'
+                          : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-700'
+                      }`}
+                    >
+                      {filter === 'all' ? 'All' : filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {selectedIds.size > 0 ? (
+                <div className="mt-5 flex flex-col gap-3 rounded-[24px] border border-indigo-200 bg-indigo-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-900">{selectedIds.size} contacts selected</p>
+                    <p className="mt-1 text-sm text-indigo-700">Run invite sends in bulk or clean out invalid list entries.</p>
+                  </div>
+                  <div className="grid gap-2 sm:flex">
+                    <button onClick={handleBulkSendInvites} disabled={bulkLoading} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40">
+                      Send Invites
+                    </button>
+                    <button onClick={handleBulkDelete} disabled={bulkLoading} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-40">
+                      Delete Selected
+                    </button>
+                    <button onClick={() => setSelectedIds(new Set())} disabled={bulkLoading} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40">
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </SurfaceCard>
+
+            <SurfaceCard
+              eyebrow="List"
+              title="Contact roster"
+              description="Use desktop table mode for fast scanning and mobile cards for field teams."
+            >
+              {loading ? (
+                <div className="py-16 text-center">
+                  <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900" />
+                </div>
+              ) : data && data.contacts.length > 0 ? (
+                <>
+                  <div className="hidden overflow-x-auto lg:block">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="table-header">
+                          <th className="w-10 px-4 py-3">
+                            <input
+                              ref={selectAllRef}
+                              type="checkbox"
+                              checked={allOnPageSelected}
+                              onChange={toggleAll}
+                              className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                            />
+                          </th>
+                          <th className="px-4 py-3 text-left">Mobile</th>
+                          <th className="px-4 py-3 text-left">Status</th>
+                          <th className="px-4 py-3 text-left">Invited</th>
+                          <th className="px-4 py-3 text-left">Responded</th>
+                          <th className="px-4 py-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {data.contacts.map((contact) => {
+                          const status = STATUS_LABELS[contact.status] || STATUS_LABELS.uploaded;
+                          const selected = selectedIds.has(contact.id);
+                          return (
+                            <tr key={contact.id} className={selected ? 'bg-indigo-50/60' : 'hover:bg-slate-50'}>
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleOne(contact.id)}
+                                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                                />
+                              </td>
+                              <td className="px-4 py-3 font-mono text-sm font-semibold text-slate-900">{contact.mobile}</td>
+                              <td className="px-4 py-3">
+                                <InlineStatus tone={status.tone}>{status.label}</InlineStatus>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-slate-500">{formatStamp(contact.invited_at)}</td>
+                              <td className="px-4 py-3 text-sm text-slate-500">{formatStamp(contact.responded_at)}</td>
+                              <td className="px-4 py-3 text-right">
+                                {contact.status === 'confirmed' && contact.attendee_id ? (
+                                  <InlineStatus tone="emerald">Converted to attendee</InlineStatus>
+                                ) : (
+                                  <button
+                                    onClick={() => openInviteWhatsApp(contact)}
+                                    disabled={markingInvited === contact.id}
+                                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40"
+                                  >
+                                    Send Invite
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="grid gap-4 lg:hidden">
+                    {data.contacts.map((contact) => {
+                      const status = STATUS_LABELS[contact.status] || STATUS_LABELS.uploaded;
+                      const selected = selectedIds.has(contact.id);
+                      return (
+                        <div key={contact.id} className={`rounded-[24px] border p-4 shadow-sm ${selected ? 'border-indigo-200 bg-indigo-50/70' : 'border-slate-200 bg-white'}`}>
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleOne(contact.id)}
+                              className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-mono text-sm font-semibold text-slate-900">{contact.mobile}</p>
+                                <InlineStatus tone={status.tone}>{status.label}</InlineStatus>
+                              </div>
+                              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Invited</p>
+                                  <p className="mt-2 text-sm text-slate-700">{formatStamp(contact.invited_at)}</p>
+                                </div>
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Responded</p>
+                                  <p className="mt-2 text-sm text-slate-700">{formatStamp(contact.responded_at)}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4">
+                                {contact.status === 'confirmed' && contact.attendee_id ? (
+                                  <InlineStatus tone="emerald">Converted to attendee</InlineStatus>
+                                ) : (
+                                  <button
+                                    onClick={() => openInviteWhatsApp(contact)}
+                                    disabled={markingInvited === contact.id}
+                                    className="w-full rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40"
+                                  >
+                                    Send Invite
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Responded</p>
-                            <p className="mt-1">{formatStamp(c.responded_at)}</p>
-                          </div>
                         </div>
-                        <div className="mt-4">
-                          {c.status === 'confirmed' && c.attendee_id ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
-                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              Confirmed
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => openInviteWhatsApp(c)}
-                              disabled={markingInvited === c.id}
-                              className="w-full rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50"
-                            >
-                              Send Invite
-                            </button>
-                          )}
-                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {data.total_pages > 1 ? (
+                    <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-slate-500">Page {data.page} of {data.total_pages}</p>
+                      <div className="grid grid-cols-2 gap-2 sm:flex">
+                        <button
+                          onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                          disabled={page <= 1}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                        >
+                          Previous
+                        </button>
+                        <button
+                          onClick={() => setPage((prev) => Math.min(data.total_pages, prev + 1))}
+                          disabled={page >= data.total_pages}
+                          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
+                        >
+                          Next
+                        </button>
                       </div>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="px-4 py-12 text-center text-sm text-slate-400">
-                {search || statusFilter !== 'all'
-                  ? 'No contacts match your filters'
-                  : 'No contacts yet. Upload a CSV to get started.'}
-              </div>
-            )}
-          </div>
-
-          {data && data.total_pages > 1 && (
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-slate-500">
-                Page {data.page} of {data.total_pages}
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-1.5">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
-                  disabled={page >= data.total_pages}
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {addModalOpen && (
-          <div
-            className="fixed inset-0 z-50 flex items-end bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
-            onClick={() => setAddModalOpen(false)}
-          >
-            <div
-              className="card w-full rounded-t-3xl p-5 shadow-modal sm:max-w-sm sm:rounded-2xl sm:p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="mb-1 text-base font-bold text-slate-900">Add Contact</h2>
-              <p className="mb-4 text-xs text-slate-500">
-                Enter a mobile number to add a single contact and generate an invitation link.
-              </p>
-              <form onSubmit={handleAddContact} className="space-y-4">
-                <div>
-                  <label className="input-label">
-                    Mobile Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={addInputRef}
-                    type="tel"
-                    value={addMobile}
-                    onChange={(e) => setAddMobile(e.target.value)}
-                    className="input-field"
-                    placeholder="10-digit mobile number"
-                    required
-                  />
-                </div>
-                {addError && (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {addError}
-                  </div>
-                )}
-                <div className="grid grid-cols-1 gap-2 pt-1 sm:flex sm:items-center">
-                  <button type="submit" disabled={addSaving} className="btn-primary w-full sm:w-auto">
-                    {addSaving ? 'Adding...' : 'Add Contact'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddModalOpen(false)}
-                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+                  ) : null}
+                </>
+              ) : (
+                <EmptyPanel
+                  title={search || statusFilter !== 'all' ? 'No contacts match the current filter' : 'No contacts loaded yet'}
+                  description={search || statusFilter !== 'all' ? 'Clear the search or status filter to see more results.' : 'Start by importing a CSV or adding a single mobile number to create invite-ready contacts.'}
+                  action={
+                    <a href="/admin/import" className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                      Open Importer
+                    </a>
+                  }
+                />
+              )}
+            </SurfaceCard>
+          </>
         )}
       </div>
+
+      {addModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4" onClick={() => setAddModalOpen(false)}>
+          <div className="w-full rounded-t-[32px] bg-white p-5 shadow-2xl sm:max-w-md sm:rounded-[28px] sm:p-6" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.26em] text-slate-400">Add Contact</p>
+            <h2 className="mt-2 text-xl font-bold text-slate-950">Create a single invite-ready contact</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Use this for last-minute guest additions without going back to the CSV importer.</p>
+
+            <form onSubmit={handleAddContact} className="mt-5 space-y-4">
+              <div>
+                <label className="input-label">Mobile Number</label>
+                <input
+                  ref={addInputRef}
+                  type="tel"
+                  value={addMobile}
+                  onChange={(e) => setAddMobile(e.target.value)}
+                  className="input-field"
+                  placeholder="10-digit mobile number"
+                  required
+                />
+              </div>
+              {addError ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{addError}</div> : null}
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:justify-end">
+                <button type="button" onClick={() => setAddModalOpen(false)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+                  Cancel
+                </button>
+                <button type="submit" disabled={addSaving} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40">
+                  {addSaving ? 'Adding...' : 'Add Contact'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

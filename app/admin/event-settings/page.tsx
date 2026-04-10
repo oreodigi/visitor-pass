@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, FormEvent, ChangeEvent } from 'react';
+import { DEFAULT_PASS_STYLE, type PassStyleConfig } from '@/lib/pass-style-storage';
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ interface EventData {
   max_visitors: number | null;
   vip_seats: number;
   partners: Partner[];
+  pass_style: PassStyleConfig;
 }
 
 type Mode = 'list' | 'edit';
@@ -35,8 +37,42 @@ const EMPTY: EventData = {
   venue_name: '', venue_address: '', venue_contact_number: '',
   organizer_contact_number: '', support_contact_number: '',
   footer_note: '', logo_url: null, status: 'draft',
-  max_visitors: null, vip_seats: 0, partners: [],
+  max_visitors: null, vip_seats: 0, partners: [], pass_style: DEFAULT_PASS_STYLE,
 };
+
+const PASS_STYLE_PRESETS: Array<{ name: string; value: PassStyleConfig }> = [
+  {
+    name: 'Emerald',
+    value: DEFAULT_PASS_STYLE,
+  },
+  {
+    name: 'Royal',
+    value: {
+      primary_color: '#312e81',
+      secondary_color: '#4f46e5',
+      accent_color: '#7c3aed',
+      surface_color: '#eef2ff',
+    },
+  },
+  {
+    name: 'Sunset',
+    value: {
+      primary_color: '#9a3412',
+      secondary_color: '#ea580c',
+      accent_color: '#f97316',
+      surface_color: '#fff7ed',
+    },
+  },
+  {
+    name: 'Berry',
+    value: {
+      primary_color: '#9f1239',
+      secondary_color: '#db2777',
+      accent_color: '#e11d48',
+      surface_color: '#fff1f2',
+    },
+  },
+];
 
 // ─── Helpers ──────────────────────────────────────────────
 
@@ -155,11 +191,47 @@ function InsightCard({
   );
 }
 
+function PassColorField({
+  label,
+  value,
+  note,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+      <span className="text-xs font-semibold text-slate-700">{label}</span>
+      <span className="mt-1 block text-[11px] leading-5 text-slate-400">{note}</span>
+      <span className="mt-3 flex items-center gap-3">
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-12 cursor-pointer rounded-xl border border-slate-200 bg-white p-1"
+        />
+        <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-700">
+          {value.toUpperCase()}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 function PassPreviewCard({ event }: { event: EventData }) {
+  const passStyle = event.pass_style ?? DEFAULT_PASS_STYLE;
   return (
     <div className="mx-auto w-full max-w-[230px]">
       <div className="overflow-hidden rounded-[26px] border border-stone-200 bg-white shadow-[0_25px_60px_-32px_rgba(15,23,42,0.45)] text-[10px]">
-        <div className="bg-gradient-to-br from-emerald-800 via-emerald-700 to-teal-700 px-3 py-3.5">
+        <div
+          className="px-3 py-3.5"
+          style={{
+            background: `linear-gradient(135deg, ${passStyle.primary_color}, ${passStyle.secondary_color})`,
+          }}
+        >
           {event.logo_url && (
             <div className="mb-2 flex justify-center">
               <img
@@ -174,7 +246,10 @@ function PassPreviewCard({ event }: { event: EventData }) {
             {event.title || <span className="font-normal italic opacity-50">Event Title</span>}
           </p>
           <div className="mt-2 flex justify-center">
-            <span className="rounded-full bg-white/15 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-emerald-50">
+            <span
+              className="rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-[0.22em] text-white"
+              style={{ backgroundColor: passStyle.accent_color }}
+            >
               Visitor Pass
             </span>
           </div>
@@ -192,7 +267,7 @@ function PassPreviewCard({ event }: { event: EventData }) {
           </div>
           <div className="flex-1">
             <div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-stone-400">Pass No.</div>
-            <div className="mt-0.5 font-mono text-[9px] font-bold text-emerald-800">VP-001</div>
+            <div className="mt-0.5 font-mono text-[9px] font-bold" style={{ color: passStyle.accent_color }}>VP-001</div>
           </div>
           <div className="flex-1">
             <div className="text-[7px] font-semibold uppercase tracking-[0.2em] text-stone-400">Seat No.</div>
@@ -266,13 +341,13 @@ function PassPreviewCard({ event }: { event: EventData }) {
         </div>
 
         {event.footer_note && (
-          <div className="border-t border-stone-100 bg-stone-50 px-3 py-2">
+          <div className="border-t border-stone-100 px-3 py-2" style={{ backgroundColor: passStyle.surface_color }}>
             <p className="text-center text-[8px] leading-relaxed text-stone-400">{event.footer_note}</p>
           </div>
         )}
 
         {event.partners.filter((p) => p.name || p.logo_url).length > 0 && (
-          <div className="border-t border-stone-200 bg-stone-50 px-3 py-2">
+          <div className="border-t border-stone-200 px-3 py-2" style={{ backgroundColor: passStyle.surface_color }}>
             <p className="mb-1.5 text-center text-[7px] font-bold uppercase tracking-[0.24em] text-stone-400">
               Partners &amp; Sponsors
             </p>
@@ -988,6 +1063,7 @@ function EditView({
 function RedesignedEditView({
   event, saving, uploading, uploadingPartnerIdx,
   onChange, onSubmit, onLogoUpload,
+  onPassStyleChange,
   onAddPartner, onRemovePartner, onPartnerNameChange, onPartnerLogoUpload,
   onBack, onDeleteClick, message, onDismissMessage,
 }: {
@@ -995,6 +1071,7 @@ function RedesignedEditView({
   onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onSubmit: (e: FormEvent) => void;
   onLogoUpload: (e: ChangeEvent<HTMLInputElement>) => void;
+  onPassStyleChange: (key: keyof PassStyleConfig, value: string) => void;
   onAddPartner: () => void;
   onRemovePartner: (idx: number) => void;
   onPartnerNameChange: (idx: number, name: string) => void;
@@ -1188,7 +1265,7 @@ function RedesignedEditView({
               </div>
             </SectionCard>
 
-            <SectionCard eyebrow="Pass Branding" title="Footer copy and event branding" sub="Control the event logo and footer line that appear on the final pass.">
+            <SectionCard eyebrow="Pass Branding" title="Footer copy, event branding, and pass colors" sub="Control the event logo, footer line, and the color system used for generated passes.">
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.65fr_0.95fr]">
                 <div className="space-y-4">
                   <div>
@@ -1200,6 +1277,43 @@ function RedesignedEditView({
                     <p className="mt-2 text-sm text-slate-600">
                       {event.footer_note || 'Your footer note will appear here on the attendee pass and can highlight the organizer or special access instructions.'}
                     </p>
+                  </div>
+                  <div className="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-slate-400">Pass Theme Presets</p>
+                        <p className="mt-1 text-sm text-slate-600">Choose a preset, then fine-tune the colors below.</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                      {PASS_STYLE_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            onPassStyleChange('primary_color', preset.value.primary_color);
+                            onPassStyleChange('secondary_color', preset.value.secondary_color);
+                            onPassStyleChange('accent_color', preset.value.accent_color);
+                            onPassStyleChange('surface_color', preset.value.surface_color);
+                          }}
+                          className="rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-transform hover:-translate-y-0.5 hover:border-slate-300"
+                        >
+                          <div className="flex gap-1.5">
+                            <span className="h-6 flex-1 rounded-full" style={{ backgroundColor: preset.value.primary_color }} />
+                            <span className="h-6 flex-1 rounded-full" style={{ backgroundColor: preset.value.secondary_color }} />
+                            <span className="h-6 flex-1 rounded-full" style={{ backgroundColor: preset.value.accent_color }} />
+                            <span className="h-6 flex-1 rounded-full border border-slate-200" style={{ backgroundColor: preset.value.surface_color }} />
+                          </div>
+                          <p className="mt-3 text-sm font-semibold text-slate-800">{preset.name}</p>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <PassColorField label="Primary" value={event.pass_style.primary_color} note="Main header start color" onChange={(value) => onPassStyleChange('primary_color', value)} />
+                      <PassColorField label="Secondary" value={event.pass_style.secondary_color} note="Header gradient end color" onChange={(value) => onPassStyleChange('secondary_color', value)} />
+                      <PassColorField label="Accent" value={event.pass_style.accent_color} note="Pass badge and pass number accent" onChange={(value) => onPassStyleChange('accent_color', value)} />
+                      <PassColorField label="Surface" value={event.pass_style.surface_color} note="Footer and terms background" onChange={(value) => onPassStyleChange('surface_color', value)} />
+                    </div>
                   </div>
                 </div>
                 <LogoUpload logoUrl={event.logo_url} eventId={event.id} uploading={uploading} onUpload={onLogoUpload} />
@@ -1326,6 +1440,7 @@ export default function EventsPage() {
           max_visitors: e.max_visitors != null ? Number(e.max_visitors) : null,
           vip_seats: e.vip_seats != null ? Number(e.vip_seats) : 0,
           partners: Array.isArray(e.partners) ? (e.partners as Partner[]) : [],
+          pass_style: (e.pass_style as PassStyleConfig) || DEFAULT_PASS_STYLE,
         }));
         setEvents(list);
       }
@@ -1342,10 +1457,43 @@ export default function EventsPage() {
     setMode('edit');
   }
 
-  function openEdit(ev: EventData) {
-    setEvent({ ...ev });
+  async function openEdit(ev: EventData) {
+    setLoading(true);
     setMessage(null);
-    setMode('edit');
+    try {
+      const res = await fetch(`/api/events?id=${ev.id}`);
+      const data = await res.json();
+      if (!data.success || !data.data) {
+        setMessage({ type: 'error', text: data.error?.message || 'Failed to load event details' });
+        return;
+      }
+
+      const item = data.data as Record<string, unknown>;
+      setEvent({
+        id: item.id as string,
+        title: (item.title as string) || '',
+        event_date: (item.event_date as string) || '',
+        start_time: ((item.start_time as string) || '').slice(0, 5),
+        end_time: ((item.end_time as string) || '').slice(0, 5),
+        venue_name: (item.venue_name as string) || '',
+        venue_address: (item.venue_address as string) || '',
+        venue_contact_number: (item.venue_contact_number as string) || '',
+        organizer_contact_number: (item.organizer_contact_number as string) || '',
+        support_contact_number: (item.support_contact_number as string) || '',
+        footer_note: (item.footer_note as string) || '',
+        logo_url: (item.logo_url as string) || null,
+        status: (item.status as string) || 'draft',
+        max_visitors: item.max_visitors != null ? Number(item.max_visitors) : null,
+        vip_seats: item.vip_seats != null ? Number(item.vip_seats) : 0,
+        partners: Array.isArray(item.partners) ? (item.partners as Partner[]) : [],
+        pass_style: (item.pass_style as PassStyleConfig) || DEFAULT_PASS_STYLE,
+      });
+      setMode('edit');
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to load event details' });
+    } finally {
+      setLoading(false);
+    }
   }
 
   function backToList() {
@@ -1360,6 +1508,17 @@ export default function EventsPage() {
       ? (value === '' ? null : Number(value))
       : value;
     setEvent((prev) => ({ ...prev, [name]: parsed }));
+    if (message) setMessage(null);
+  }
+
+  function handlePassStyleChange(key: keyof PassStyleConfig, value: string) {
+    setEvent((prev) => ({
+      ...prev,
+      pass_style: {
+        ...prev.pass_style,
+        [key]: value,
+      },
+    }));
     if (message) setMessage(null);
   }
 
@@ -1531,6 +1690,7 @@ export default function EventsPage() {
           onChange={handleChange}
           onSubmit={handleSubmit}
           onLogoUpload={handleLogoUpload}
+          onPassStyleChange={handlePassStyleChange}
           onAddPartner={addPartner}
           onRemovePartner={removePartner}
           onPartnerNameChange={handlePartnerNameChange}

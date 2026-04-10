@@ -6,6 +6,12 @@ import {
   LOGO_BUCKET,
 } from '@/lib/constants';
 import { uploadPublicFile } from '@/lib/storage';
+import {
+  DEFAULT_PASS_STYLE,
+  normalizePassStyleConfig,
+  savePassStyleConfig,
+  loadPassStyleConfig,
+} from '@/lib/pass-style-storage';
 import type {
   CreateEventPayload,
   UpdateEventPayload,
@@ -124,6 +130,7 @@ export async function createEvent(
 
   const db = createServerClient();
   const cleaned = sanitizeEventData(payload);
+  const passStyle = 'pass_style' in payload ? normalizePassStyleConfig(payload.pass_style) : DEFAULT_PASS_STYLE;
 
   const { data, error } = await db
     .from('events')
@@ -136,7 +143,10 @@ export async function createEvent(
     return { error: 'Failed to create event' };
   }
 
-  return { data: data as EventResponse };
+  const saveStyle = await savePassStyleConfig(db, data.id, passStyle);
+  if (saveStyle.error) return { error: saveStyle.error };
+
+  return { data: { ...(data as EventResponse), pass_style: passStyle } };
 }
 
 // ── Update Event ──────────────────────────────────────────
@@ -144,7 +154,8 @@ export async function createEvent(
 export async function updateEvent(
   payload: UpdateEventPayload
 ): Promise<{ data?: EventResponse; error?: string }> {
-  const { id, status, ...rest } = payload;
+  const hasPassStyle = 'pass_style' in payload;
+  const { id, status, pass_style, ...rest } = payload;
   if (!id) return { error: 'Event ID is required' };
 
   const validationError = validateEventPayload(rest, true);
@@ -167,7 +178,18 @@ export async function updateEvent(
     return { error: 'Failed to update event' };
   }
 
-  return { data: data as EventResponse };
+  let passStyle = DEFAULT_PASS_STYLE;
+  if (hasPassStyle) {
+    passStyle = normalizePassStyleConfig(pass_style);
+    const saveStyle = await savePassStyleConfig(db, id, passStyle);
+    if (saveStyle.error) return { error: saveStyle.error };
+  } else {
+    const loadedStyle = await loadPassStyleConfig(db, id);
+    if (loadedStyle.error) return { error: loadedStyle.error };
+    passStyle = loadedStyle.data ?? DEFAULT_PASS_STYLE;
+  }
+
+  return { data: { ...(data as EventResponse), pass_style: passStyle } };
 }
 
 // ── Get Event by ID ───────────────────────────────────────
@@ -187,6 +209,9 @@ export async function getEventById(
     return { error: 'Event not found' };
   }
 
+  const passStyleResult = await loadPassStyleConfig(db, id);
+  if (passStyleResult.error) return { error: passStyleResult.error };
+
   // Get counts
   const { count: attendeeCount } = await db
     .from('attendees')
@@ -202,6 +227,7 @@ export async function getEventById(
   return {
     data: {
       ...event,
+      pass_style: passStyleResult.data ?? DEFAULT_PASS_STYLE,
       attendee_count: attendeeCount || 0,
       checked_in_count: checkedInCount || 0,
     } as EventResponse,

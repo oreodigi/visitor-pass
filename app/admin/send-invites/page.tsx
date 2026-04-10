@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
+import { AdminHero, InlineStatus, MetricTile, SurfaceCard } from '@/app/admin/_components/admin-surface';
 import type { BulkSendProgress } from '@/lib/wa-sender';
 
 type WaStatus = 'idle' | 'initializing' | 'qr_ready' | 'authenticated' | 'ready' | 'disconnected';
@@ -13,34 +14,29 @@ interface WaState {
 
 const STATUS_COPY: Record<WaStatus, string> = {
   idle: 'Not connected',
-  initializing: 'Starting WhatsApp Web…',
+  initializing: 'Starting WhatsApp Web...',
   qr_ready: 'Scan the QR code with your phone',
-  authenticated: 'Authenticated — loading…',
-  ready: 'Connected & ready',
+  authenticated: 'Authenticated, loading...',
+  ready: 'Connected and ready',
   disconnected: 'Disconnected',
 };
 
-const DEFAULTS = {
-  minDelay: 45,
-  maxDelay: 90,
-  batchSize: 15,
-  batchBreak: 300,
-};
+const DEFAULTS = { minDelay: 45, maxDelay: 90, batchSize: 15, batchBreak: 300 };
 
-function fmtSeconds(s: number) {
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return rem > 0 ? `${m}m ${rem}s` : `${m}m`;
+function fmtSeconds(seconds: number) {
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem > 0 ? `${minutes}m ${rem}s` : `${minutes}m`;
 }
 
 function Countdown({ nextSendAt }: { nextSendAt: number }) {
-  const [secs, setSecs] = useState(Math.max(0, Math.ceil((nextSendAt - Date.now()) / 1000)));
+  const [seconds, setSeconds] = useState(Math.max(0, Math.ceil((nextSendAt - Date.now()) / 1000)));
   useEffect(() => {
-    const id = setInterval(() => setSecs(Math.max(0, Math.ceil((nextSendAt - Date.now()) / 1000))), 500);
+    const id = setInterval(() => setSeconds(Math.max(0, Math.ceil((nextSendAt - Date.now()) / 1000))), 500);
     return () => clearInterval(id);
   }, [nextSendAt]);
-  return <span>{fmtSeconds(secs)}</span>;
+  return <span>{fmtSeconds(seconds)}</span>;
 }
 
 export default function SendInvitesPage() {
@@ -63,25 +59,32 @@ export default function SendInvitesPage() {
     if (!eventId) return;
     fetch(`/api/contacts?event_id=${eventId}&per_page=1&page=1&status_filter=uploaded`)
       .then((r) => r.json())
-      .then((d) => {
-        if (d.success) {
-          fetch(`/api/contacts?event_id=${eventId}&per_page=1&page=1&status_filter=invited`)
-            .then((r2) => r2.json())
-            .then((d2) => {
-              const uploaded = d.data?.total || 0;
-              const invited = d2.success ? (d2.data?.total || 0) : 0;
-              setPendingCount(uploaded + invited);
-            });
-        }
+      .then((first) => {
+        if (!first.success) return;
+        fetch(`/api/contacts?event_id=${eventId}&per_page=1&page=1&status_filter=invited`)
+          .then((r) => r.json())
+          .then((second) => {
+            const uploaded = first.data?.total || 0;
+            const invited = second.success ? second.data?.total || 0 : 0;
+            setPendingCount(uploaded + invited);
+          });
       });
   }, [eventId]);
 
   const pollWaStatus = useCallback(() => {
-    fetch('/api/whatsapp').then((r) => r.json()).then((d) => { if (d.success) setWaState(d.data); });
+    fetch('/api/whatsapp')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setWaState(data.data);
+      });
   }, []);
 
   const pollProgress = useCallback(() => {
-    fetch('/api/whatsapp/progress').then((r) => r.json()).then((d) => { if (d.success) setProgress(d.data); });
+    fetch('/api/whatsapp/progress')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success) setProgress(data.data);
+      });
   }, []);
 
   useEffect(() => {
@@ -91,14 +94,16 @@ export default function SendInvitesPage() {
       pollWaStatus();
       if (progress?.status === 'running') pollProgress();
     }, 3000);
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [pollWaStatus, pollProgress, progress?.status]);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [pollProgress, pollWaStatus, progress?.status]);
 
   useEffect(() => {
     if (progress?.status !== 'running') return;
     const id = setInterval(pollProgress, 2000);
     return () => clearInterval(id);
-  }, [progress?.status, pollProgress]);
+  }, [pollProgress, progress?.status]);
 
   async function handleConnect() {
     setError(null);
@@ -127,8 +132,8 @@ export default function SendInvitesPage() {
           batch_break_ms: config.batchBreak * 1000,
         }),
       });
-      const d = await res.json();
-      if (!d.success) setError(d.error?.message || 'Failed to start');
+      const data = await res.json();
+      if (!data.success) setError(data.error?.message || 'Failed to start sending');
       else pollProgress();
     } finally {
       setStarting(false);
@@ -140,266 +145,169 @@ export default function SendInvitesPage() {
     pollProgress();
   }
 
+  function applyPreset(preset: 'safe' | 'balanced' | 'fast') {
+    if (preset === 'safe') {
+      setConfig({ minDelay: 60, maxDelay: 120, batchSize: 10, batchBreak: 420 });
+      return;
+    }
+    if (preset === 'fast') {
+      setConfig({ minDelay: 25, maxDelay: 45, batchSize: 20, batchBreak: 180 });
+      return;
+    }
+    setConfig(DEFAULTS);
+  }
+
   const isRunning = progress?.status === 'running';
   const isConnected = waState.status === 'ready';
-  const pct = progress && progress.total > 0
-    ? Math.round(((progress.sent + progress.failed) / progress.total) * 100)
-    : 0;
+  const percent = progress && progress.total > 0 ? Math.round(((progress.sent + progress.failed) / progress.total) * 100) : 0;
+  const avgDelay = (config.minDelay + config.maxDelay) / 2;
+  const estimatedSeconds = pendingCount != null ? Math.round((pendingCount * avgDelay) + ((Math.ceil(pendingCount / config.batchSize) - 1) * config.batchBreak)) : null;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.08),_transparent_28%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_100%)]">
       <EventSelectorBar onChange={handleEventChange} />
-    <div className="mx-auto w-full max-w-2xl px-4 py-5 space-y-6 lg:py-8">
-
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-900">Bulk Send Invites</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Send WhatsApp invitations automatically with safe rate limiting to avoid blocks.
-        </p>
-      </div>
-
-      {error && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          <svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-          </svg>
-          {error}
-        </div>
-      )}
-
-      {/* Step 1: Connect WhatsApp */}
-      <div className="card p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">1</span>
-              <h2 className="text-sm font-semibold text-slate-900">Connect WhatsApp</h2>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-5 lg:px-6 lg:py-8">
+        <AdminHero
+          eyebrow="Bulk Invite Sending"
+          title={selectedEvent ? `WhatsApp send room for ${selectedEvent.title}` : 'Connect WhatsApp and send event invites in batches'}
+          description={selectedEvent ? 'Run invite campaigns from a single device session, slow the queue down when needed, and monitor live progress without leaving the admin panel.' : 'Select an event first. Then connect WhatsApp Web, choose a safe sending profile, and start the invite queue.'}
+        >
+          {selectedEvent ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <MetricTile label="Pending Contacts" value={pendingCount ?? '...'} note="Uploaded plus invited contacts not yet confirmed" tone="indigo" />
+              <MetricTile label="Connection" value={isConnected ? 'Ready' : 'Offline'} note={STATUS_COPY[waState.status]} tone={isConnected ? 'emerald' : 'amber'} />
+              <MetricTile label="Estimated Runtime" value={estimatedSeconds != null ? fmtSeconds(Math.max(estimatedSeconds, 0)) : '...'} note="Based on current delay and batch settings" tone="slate" />
+              <MetricTile label="Progress" value={`${percent}%`} note="Current run completion rate" tone="sky" />
             </div>
-            <p className="text-xs text-slate-500 ml-7">{STATUS_COPY[waState.status]}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${
-              isConnected ? 'bg-emerald-500' :
-              ['qr_ready', 'initializing', 'authenticated'].includes(waState.status) ? 'bg-amber-400 animate-pulse' :
-              'bg-slate-300'
-            }`} />
-            <span className="text-xs font-medium text-slate-600">
-              {isConnected ? 'Connected' :
-               waState.status === 'qr_ready' ? 'Awaiting scan' :
-               ['initializing', 'authenticated'].includes(waState.status) ? 'Connecting…' :
-               'Disconnected'}
-            </span>
-          </div>
-        </div>
-
-        {waState.status === 'qr_ready' && waState.qrDataUrl && (
-          <div className="mt-5 flex flex-col items-center gap-3">
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card">
-              <img src={waState.qrDataUrl} alt="WhatsApp QR" className="h-52 w-52" />
-            </div>
-            <div className="text-center">
-              <p className="text-xs font-semibold text-slate-700">Open WhatsApp on your phone</p>
-              <p className="text-xs text-slate-400">Settings → Linked Devices → Link a Device</p>
-            </div>
-          </div>
-        )}
-
-        {['initializing', 'authenticated'].includes(waState.status) && (
-          <div className="mt-4 flex items-center gap-2.5 text-sm text-slate-500">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600 shrink-0" />
-            <span>{waState.status === 'initializing' ? 'Starting browser — this takes 15–30 seconds…' : 'Authenticating…'}</span>
-          </div>
-        )}
-
-        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
-          {(waState.status === 'idle' || waState.status === 'disconnected') ? (
-            <button onClick={handleConnect} className="btn-primary text-sm">
-              Connect WhatsApp
-            </button>
-          ) : isConnected ? (
-            <button
-              onClick={handleDisconnect}
-              className="rounded-lg border border-red-200 bg-white px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-            >
-              Disconnect
-            </button>
           ) : null}
-        </div>
-      </div>
+        </AdminHero>
 
-      {/* Step 2: Rate limit config */}
-      <div className={`card p-5 transition-opacity ${!isConnected ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">2</span>
-          <h2 className="text-sm font-semibold text-slate-900">Rate Limit Settings</h2>
-        </div>
+        {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div> : null}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="input-label">Min delay (seconds)</label>
-            <input
-              type="number" min={10} max={300} value={config.minDelay}
-              onChange={(e) => setConfig((c) => ({ ...c, minDelay: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="input-label">Max delay (seconds)</label>
-            <input
-              type="number" min={10} max={600} value={config.maxDelay}
-              onChange={(e) => setConfig((c) => ({ ...c, maxDelay: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="input-label">Messages per batch</label>
-            <input
-              type="number" min={1} max={50} value={config.batchSize}
-              onChange={(e) => setConfig((c) => ({ ...c, batchSize: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
-          <div>
-            <label className="input-label">Pause between batches (seconds)</label>
-            <input
-              type="number" min={60} max={1800} value={config.batchBreak}
-              onChange={(e) => setConfig((c) => ({ ...c, batchBreak: Number(e.target.value) }))}
-              className="input-field"
-            />
-          </div>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
-          <strong>Estimated time</strong> for {pendingCount ?? '?'} contacts:{' '}
-          {pendingCount != null ? (() => {
-            const avgDelay = (config.minDelay + config.maxDelay) / 2;
-            const batches = Math.ceil(pendingCount / config.batchSize);
-            const totalSecs = (pendingCount * avgDelay) + ((batches - 1) * config.batchBreak);
-            return fmtSeconds(Math.round(totalSecs));
-          })() : '…'}
-          {' '}· Keep delays at 45s+ to stay safe.
-        </div>
-      </div>
-
-      {/* Step 3: Send */}
-      <div className={`card p-5 transition-opacity ${!isConnected ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">3</span>
-              <h2 className="text-sm font-semibold text-slate-900">Send Invites</h2>
-            </div>
-            <p className="text-xs text-slate-500 ml-7">
-              {pendingCount != null
-                ? `${pendingCount} contacts pending (uploaded + invited, not yet confirmed)`
-                : 'Loading…'}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-2 shrink-0 sm:flex">
-            {isRunning ? (
-              <button
-                onClick={handleStop}
-                className="rounded-lg border border-red-200 bg-white px-3.5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Stop
-              </button>
-            ) : (
-              <button
-                onClick={handleStartSend}
-                disabled={starting || !pendingCount || progress?.status === 'running'}
-                className="btn-primary text-sm disabled:opacity-40"
-              >
-                {starting ? 'Starting…' : `Send to ${pendingCount ?? '…'} contacts`}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {progress && progress.status !== 'idle' && (
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-xs text-slate-500 mb-1.5">
-                <span>{progress.sent + progress.failed} / {progress.total}</span>
-                <span className={
-                  progress.status === 'completed' ? 'text-emerald-700 font-semibold' :
-                  progress.status === 'stopped' ? 'text-amber-600 font-semibold' :
-                  'text-slate-500'
-                }>
-                  {progress.status === 'running' ? 'Sending…' :
-                   progress.status === 'completed' ? 'Completed' :
-                   progress.status === 'stopped' ? 'Stopped' : ''}
-                </span>
-              </div>
-              <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    progress.status === 'completed' ? 'bg-emerald-500' :
-                    progress.status === 'stopped' ? 'bg-amber-400' :
-                    'bg-gradient-to-r from-brand-500 to-violet-500'
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
-              <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
-                <div className="text-xl font-bold text-emerald-700 tabular-nums">{progress.sent}</div>
-                <div className="text-[10px] text-emerald-600 uppercase tracking-wide mt-0.5">Sent</div>
-              </div>
-              <div className="rounded-xl bg-red-50 border border-red-200 px-3 py-2.5">
-                <div className="text-xl font-bold text-red-600 tabular-nums">{progress.failed}</div>
-                <div className="text-[10px] text-red-500 uppercase tracking-wide mt-0.5">Failed</div>
-              </div>
-              <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
-                <div className="text-xl font-bold text-slate-700 tabular-nums">{progress.total - progress.sent - progress.failed}</div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wide mt-0.5">Remaining</div>
-              </div>
-            </div>
-
-            {isRunning && (
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                {progress.nextSendAt ? (
-                  <>
-                    <div className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    <span>Next message in <strong className="text-slate-700"><Countdown nextSendAt={progress.nextSendAt} /></strong></span>
-                  </>
-                ) : progress.currentMobile ? (
-                  <>
-                    <div className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
-                    <span>Sending to <strong className="text-slate-700 font-mono">{progress.currentMobile}</strong></span>
-                  </>
-                ) : null}
-              </div>
-            )}
-
-            {progress.errors.length > 0 && (
-              <details>
-                <summary className="text-xs text-red-600 cursor-pointer select-none">
-                  {progress.errors.length} failed — tap to see
-                </summary>
-                <div className="mt-2 max-h-40 overflow-y-auto rounded-xl border border-red-200 bg-red-50 p-2 space-y-1">
-                  {progress.errors.map((e, i) => (
-                    <div key={i} className="flex gap-2 text-xs text-red-700 font-mono">
-                      <span className="text-red-400">{e.mobile}</span>
-                      <span>{e.reason}</span>
+        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="space-y-6">
+            <SurfaceCard eyebrow="Session" title="WhatsApp connection" description="This session controls WhatsApp Web from your logged-in browser session. Keep the tab alive while sending.">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-3">
+                  <InlineStatus tone={isConnected ? 'emerald' : waState.status === 'qr_ready' ? 'amber' : 'slate'}>{STATUS_COPY[waState.status]}</InlineStatus>
+                  {waState.status === 'qr_ready' && waState.qrDataUrl ? (
+                    <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
+                      <img src={waState.qrDataUrl} alt="WhatsApp QR" className="h-56 w-56 max-w-full" />
+                      <p className="mt-3 text-sm text-slate-500">Open WhatsApp on your phone, then go to Linked Devices and scan this code.</p>
                     </div>
-                  ))}
+                  ) : null}
                 </div>
-              </details>
-            )}
-          </div>
-        )}
-      </div>
+                <div className="grid gap-2 sm:flex">
+                  {(waState.status === 'idle' || waState.status === 'disconnected') ? (
+                    <button onClick={handleConnect} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
+                      Connect WhatsApp
+                    </button>
+                  ) : null}
+                  {isConnected ? (
+                    <button onClick={handleDisconnect} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50">
+                      Disconnect
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </SurfaceCard>
 
-      {/* Info box */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 space-y-1.5">
-        <p><strong className="text-slate-700">How this works:</strong> This browser controls WhatsApp Web on your behalf. Messages appear as if sent from your phone number — no API needed.</p>
-        <p><strong className="text-slate-700">Stay safe:</strong> Keep delays at 45s+ and batches at 15 or fewer. Sending too fast can trigger WhatsApp restrictions.</p>
-        <p><strong className="text-slate-700">Session persists</strong> across page refreshes — you only need to scan the QR once until you disconnect.</p>
+            <SurfaceCard eyebrow="Throttle" title="Sending profile" description="Use safer presets for large campaigns. The custom controls below let you tune runtime against WhatsApp risk.">
+              <div className="grid gap-2 sm:grid-cols-3">
+                <button type="button" onClick={() => applyPreset('safe')} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300">
+                  <p className="text-sm font-semibold text-slate-900">Safe</p>
+                  <p className="mt-1 text-xs text-slate-500">Best for high-value live events</p>
+                </button>
+                <button type="button" onClick={() => applyPreset('balanced')} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300">
+                  <p className="text-sm font-semibold text-slate-900">Balanced</p>
+                  <p className="mt-1 text-xs text-slate-500">Default day-to-day sending</p>
+                </button>
+                <button type="button" onClick={() => applyPreset('fast')} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300">
+                  <p className="text-sm font-semibold text-slate-900">Fast</p>
+                  <p className="mt-1 text-xs text-slate-500">Use carefully on small lists</p>
+                </button>
+              </div>
+
+              <div className={`mt-5 grid gap-4 sm:grid-cols-2 ${!isConnected ? 'pointer-events-none opacity-50' : ''}`}>
+                <div><label className="input-label">Min delay (seconds)</label><input type="number" min={10} max={300} value={config.minDelay} onChange={(e) => setConfig((prev) => ({ ...prev, minDelay: Number(e.target.value) }))} className="input-field" /></div>
+                <div><label className="input-label">Max delay (seconds)</label><input type="number" min={10} max={600} value={config.maxDelay} onChange={(e) => setConfig((prev) => ({ ...prev, maxDelay: Number(e.target.value) }))} className="input-field" /></div>
+                <div><label className="input-label">Messages per batch</label><input type="number" min={1} max={50} value={config.batchSize} onChange={(e) => setConfig((prev) => ({ ...prev, batchSize: Number(e.target.value) }))} className="input-field" /></div>
+                <div><label className="input-label">Pause between batches (seconds)</label><input type="number" min={60} max={1800} value={config.batchBreak} onChange={(e) => setConfig((prev) => ({ ...prev, batchBreak: Number(e.target.value) }))} className="input-field" /></div>
+              </div>
+            </SurfaceCard>
+          </div>
+
+          <div className="space-y-6">
+            <SurfaceCard eyebrow="Queue" title="Start or stop the invite run" description="Only pending contacts are included. Confirmed contacts are excluded automatically.">
+              <div className={`space-y-4 ${!isConnected ? 'pointer-events-none opacity-50' : ''}`}>
+                <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
+                  <p className="text-sm font-semibold text-slate-900">{pendingCount != null ? `${pendingCount} contacts ready for invite sending` : 'Loading contact count...'}</p>
+                  <p className="mt-1 text-sm text-slate-500">Keep delays at 45 seconds or above for a safer delivery rhythm.</p>
+                </div>
+                <div className="grid gap-2 sm:flex">
+                  {isRunning ? (
+                    <button onClick={handleStop} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50">
+                      Stop Sending
+                    </button>
+                  ) : (
+                    <button onClick={handleStartSend} disabled={starting || !pendingCount} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40">
+                      {starting ? 'Starting...' : `Send to ${pendingCount ?? '...'} contacts`}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {progress && progress.status !== 'idle' ? (
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between text-sm text-slate-500">
+                      <span>{progress.sent + progress.failed} / {progress.total}</span>
+                      <span>{progress.status === 'completed' ? 'Completed' : progress.status === 'stopped' ? 'Stopped' : 'Running'}</span>
+                    </div>
+                    <div className="h-3 overflow-hidden rounded-full bg-slate-100">
+                      <div className={`h-full rounded-full ${progress.status === 'completed' ? 'bg-emerald-500' : progress.status === 'stopped' ? 'bg-amber-400' : 'bg-gradient-to-r from-emerald-500 to-cyan-500'}`} style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <MetricTile label="Sent" value={progress.sent} note="Successful deliveries" tone="emerald" />
+                    <MetricTile label="Failed" value={progress.failed} note="Rows that need a retry" tone="rose" />
+                    <MetricTile label="Remaining" value={progress.total - progress.sent - progress.failed} note="Left in the queue" tone="slate" />
+                  </div>
+                  {isRunning && progress.nextSendAt ? <InlineStatus tone="amber">Next message in <Countdown nextSendAt={progress.nextSendAt} /></InlineStatus> : null}
+                  {progress.errors.length > 0 ? (
+                    <details className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-rose-700">{progress.errors.length} failed messages</summary>
+                      <div className="mt-3 space-y-2">
+                        {progress.errors.map((item, index) => (
+                          <div key={`${item.mobile}-${index}`} className="rounded-xl bg-white/70 px-3 py-2 text-sm text-rose-700">
+                            <span className="font-mono">{item.mobile}</span>: {item.reason}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+              ) : null}
+            </SurfaceCard>
+
+            <SurfaceCard eyebrow="Safety" title="Operator checklist" description="Use these checks before every live send to avoid blocks and wasted invite volume.">
+              <div className="space-y-3 text-sm text-slate-600">
+                {[
+                  'Keep WhatsApp active on the phone and browser while the queue is running.',
+                  'Use safe or balanced mode for lists above 100 contacts.',
+                  'Review your invite template before sending a large batch.',
+                  'Do not close the tab until the run is complete or stopped manually.',
+                ].map((item) => (
+                  <div key={item} className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                    <div className="mt-1 h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    <p>{item}</p>
+                  </div>
+                ))}
+              </div>
+            </SurfaceCard>
+          </div>
+        </div>
       </div>
-    </div>
     </div>
   );
 }

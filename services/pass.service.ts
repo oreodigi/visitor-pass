@@ -13,6 +13,11 @@ import {
   type SeatMapConfig,
 } from '@/lib/seat-map';
 import { readFallbackSeatMapConfig } from '@/lib/seat-map-storage';
+import {
+  DEFAULT_PASS_STYLE,
+  loadPassStyleConfig,
+  type PassStyleConfig,
+} from '@/lib/pass-style-storage';
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -379,6 +384,7 @@ export interface PublicPassData {
     logo_url: string | null;
     pass_terms_conditions: string | null;
     partners: Array<{ name: string; logo_url: string | null }> | null;
+    pass_style: PassStyleConfig;
   };
   pass_url: string;
 }
@@ -405,6 +411,9 @@ export async function getPublicPassByToken(
 
   if (eventErr || !event) return { error: 'Event not found' };
 
+  const passStyleResult = await loadPassStyleConfig(db, attendee.event_id);
+  if (passStyleResult.error) return { error: passStyleResult.error };
+
   return {
     data: {
       attendee: {
@@ -416,7 +425,10 @@ export async function getPublicPassByToken(
         pass_number: attendee.pass_number,
         checked_in_at: attendee.checked_in_at,
       },
-      event,
+      event: {
+        ...event,
+        pass_style: passStyleResult.data ?? DEFAULT_PASS_STYLE,
+      },
       pass_url: attendee.pass_url || buildAppUrl(`/p/${token}`),
     },
   };
