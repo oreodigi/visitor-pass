@@ -2,7 +2,8 @@
 // Uses whatsapp-web.js (Puppeteer + WhatsApp Web) for automated sending.
 // Runs as a persistent Node.js global — survives API request cycles.
 
-import { getWhatsAppRuntimeBlockReason } from './runtime';
+import { getWhatsAppProvider, getWhatsAppRuntimeBlockReason, type WhatsAppProvider } from './runtime';
+import { sendCloudWhatsAppMessage, type CloudTemplateVars } from './wa-cloud';
 
 export type WaStatus =
   | 'idle'
@@ -33,26 +34,39 @@ function g(): WaGlobal {
   return global.__wa;
 }
 
-export function getWaStatus(): { status: WaStatus; qrDataUrl: string | null; reason?: string | null } {
+export function getWaStatus(): { status: WaStatus; qrDataUrl: string | null; reason?: string | null; provider: WhatsAppProvider } {
   const s = g();
   const blockedReason = getWhatsAppRuntimeBlockReason();
+  const provider = getWhatsAppProvider();
   if (blockedReason) {
     s.status = 'disabled';
     s.reason = blockedReason;
     s.qrDataUrl = null;
+  } else if (provider === 'cloud_api') {
+    s.status = 'ready';
+    s.reason = 'WhatsApp Cloud API is configured for Vercel-safe sending.';
+    s.qrDataUrl = null;
   }
-  return { status: s.status, qrDataUrl: s.qrDataUrl, reason: s.reason ?? null };
+  return { status: s.status, qrDataUrl: s.qrDataUrl, reason: s.reason ?? null, provider };
 }
 
 export function initWaClient(): void {
   const s = g();
   const blockedReason = getWhatsAppRuntimeBlockReason();
+  const provider = getWhatsAppProvider();
   if (blockedReason) {
     s.status = 'disabled';
     s.reason = blockedReason;
     s.qrDataUrl = null;
     s.client = null;
     throw new Error(blockedReason);
+  }
+  if (provider === 'cloud_api') {
+    s.status = 'ready';
+    s.reason = 'WhatsApp Cloud API is ready. No QR scan is required.';
+    s.qrDataUrl = null;
+    s.client = null;
+    return;
   }
   if (s.status === 'ready' || s.status === 'initializing' || s.status === 'qr_ready' || s.status === 'authenticated') {
     return; // already in progress
@@ -121,14 +135,15 @@ export async function disconnectWaClient(): Promise<void> {
     try { await s.client.destroy(); } catch { /* ignore */ }
   }
   s.client = null;
-  s.status = getWhatsAppRuntimeBlockReason() ? 'disabled' : 'idle';
+  s.status = getWhatsAppRuntimeBlockReason() ? 'disabled' : getWhatsAppProvider() === 'cloud_api' ? 'ready' : 'idle';
   s.qrDataUrl = null;
   s.reason = getWhatsAppRuntimeBlockReason();
 }
 
 export async function sendWaMessage(
   mobile: string,
-  message: string
+  message: string,
+  templateVars?: CloudTemplateVars,
 ): Promise<{ success: boolean; error?: string }> {
   const s = g();
   const blockedReason = getWhatsAppRuntimeBlockReason();
@@ -136,6 +151,9 @@ export async function sendWaMessage(
     s.status = 'disabled';
     s.reason = blockedReason;
     return { success: false, error: blockedReason };
+  }
+  if (getWhatsAppProvider() === 'cloud_api') {
+    return sendCloudWhatsAppMessage(mobile, message, templateVars);
   }
   if (!s.client || s.status !== 'ready') {
     return { success: false, error: 'WhatsApp not connected' };
