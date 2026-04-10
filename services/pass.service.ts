@@ -32,9 +32,54 @@ export interface BulkGenerateResult {
   passes: GeneratePassResult[];
 }
 
+interface PassEventContext {
+  id: string;
+  title: string;
+  event_date: string;
+  seat_map_config: SeatMapConfig | null;
+}
+
 // ── Constants ─────────────────────────────────────────────
 
 const MAX_TOKEN_RETRIES = 5;
+
+async function getPassEventContext(
+  db: ReturnType<typeof createServerClient>,
+  eventId: string
+): Promise<{ data?: PassEventContext; error?: string }> {
+  const primary = await db
+    .from('events')
+    .select('id, title, event_date, seat_map_config')
+    .eq('id', eventId)
+    .single();
+
+  if (!primary.error && primary.data) {
+    return { data: primary.data as PassEventContext };
+  }
+
+  if (primary.error?.code !== '42703') {
+    return { error: primary.error?.message || 'Event not found' };
+  }
+
+  // Backward-compatible fallback for databases that have not run the
+  // seat-map migration yet. Pass generation can still proceed without seat maps.
+  const fallback = await db
+    .from('events')
+    .select('id, title, event_date')
+    .eq('id', eventId)
+    .single();
+
+  if (fallback.error || !fallback.data) {
+    return { error: fallback.error?.message || 'Event not found' };
+  }
+
+  return {
+    data: {
+      ...(fallback.data as { id: string; title: string; event_date: string }),
+      seat_map_config: null,
+    },
+  };
+}
 
 // ── Generate Pass for Single Attendee ─────────────────────
 
@@ -57,13 +102,9 @@ export async function generatePassForAttendee(
     return { error: 'Pass already generated. Use force=true to regenerate.' };
   }
 
-  const { data: event, error: eventErr } = await db
-    .from('events')
-    .select('id, title, event_date, seat_map_config')
-    .eq('id', attendee.event_id)
-    .single();
-
-  if (eventErr || !event) return { error: 'Event not found' };
+  const eventResult = await getPassEventContext(db, attendee.event_id);
+  if (eventResult.error || !eventResult.data) return { error: 'Event not found' };
+  const event = eventResult.data;
 
   // Generate QR token with uniqueness retry
   let qrToken: string | null = null;
@@ -146,16 +187,12 @@ export async function bulkGeneratePasses(
 
   const db = createServerClient();
 
-  const { data: event, error: eventErr } = await db
-    .from('events')
-    .select('id, title, event_date, seat_map_config')
-    .eq('id', eventId)
-    .single();
-
-  if (eventErr || !event) {
+  const eventResult = await getPassEventContext(db, eventId);
+  if (eventResult.error || !eventResult.data) {
     result.errors.push({ attendee_id: '', reason: 'Event not found' });
     return result;
   }
+  const event = eventResult.data;
 
   let query = db
     .from('attendees')

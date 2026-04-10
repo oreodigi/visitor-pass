@@ -149,7 +149,7 @@ export default function SendInvitesPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <EventSelectorBar onChange={handleEventChange} />
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 lg:py-8 space-y-6">
+    <div className="mx-auto w-full max-w-2xl px-4 py-5 space-y-6 lg:py-8">
 
       {/* Header */}
       <div>
@@ -170,7 +170,7 @@ export default function SendInvitesPage() {
 
       {/* Step 1: Connect WhatsApp */}
       <div className="card p-5">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">1</span>
@@ -212,7 +212,7 @@ export default function SendInvitesPage() {
           </div>
         )}
 
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 grid grid-cols-1 gap-2 sm:flex">
           {(waState.status === 'idle' || waState.status === 'disconnected') ? (
             <button onClick={handleConnect} className="btn-primary text-sm">
               Connect WhatsApp
@@ -235,7 +235,7 @@ export default function SendInvitesPage() {
           <h2 className="text-sm font-semibold text-slate-900">Rate Limit Settings</h2>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="input-label">Min delay (seconds)</label>
             <input
@@ -284,7 +284,7 @@ export default function SendInvitesPage() {
 
       {/* Step 3: Send */}
       <div className={`card p-5 transition-opacity ${!isConnected ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-2 mb-0.5">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand-100 text-[10px] font-bold text-brand-700">3</span>
@@ -296,7 +296,7 @@ export default function SendInvitesPage() {
                 : 'Loading…'}
             </p>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="grid grid-cols-1 gap-2 shrink-0 sm:flex">
             {isRunning ? (
               <button
                 onClick={handleStop}
@@ -343,7 +343,7 @@ export default function SendInvitesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="grid grid-cols-1 gap-3 text-center sm:grid-cols-3">
               <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2.5">
                 <div className="text-xl font-bold text-emerald-700 tabular-nums">{progress.sent}</div>
                 <div className="text-[10px] text-emerald-600 uppercase tracking-wide mt-0.5">Sent</div>

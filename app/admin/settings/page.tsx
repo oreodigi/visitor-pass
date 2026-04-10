@@ -93,7 +93,7 @@ function GeneralTab({
 
       {/* Logo upload */}
       <Field label="Application Logo" hint="PNG or JPG · max 2MB · appears in the sidebar and pass header">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
           {settings.app_logo_url ? (
             <img
               src={settings.app_logo_url} alt="App logo"
@@ -116,7 +116,7 @@ function GeneralTab({
         </div>
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Application Name" hint="Shown in the sidebar header and email subjects">
           <Input name="app_name" value={settings.app_name} onChange={onChange} placeholder="Visitor Pass" />
         </Field>
@@ -130,7 +130,7 @@ function GeneralTab({
         desc="Displayed on error pages and in the footer of system emails."
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Support Email">
           <Input name="support_email" value={settings.support_email} onChange={onChange} type="email" placeholder="support@example.com" />
         </Field>
@@ -151,7 +151,7 @@ function GeneralTab({
         </div>
       )}
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-stretch pt-2 sm:justify-end">
         <button type="submit" disabled={saving} className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm">
           {saving
             ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
@@ -195,7 +195,7 @@ function SmtpTab({
       </div>
 
       {/* Server */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="col-span-2">
           <Field label="SMTP Host">
             <Input name="smtp_host" value={settings.smtp_host} onChange={onChange as (e: ChangeEvent<HTMLInputElement>) => void} placeholder="smtp.gmail.com" />
@@ -225,7 +225,7 @@ function SmtpTab({
         desc="Credentials used to log in to the SMTP server."
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="SMTP Username / Email">
           <Input name="smtp_user" value={settings.smtp_user} onChange={onChange as (e: ChangeEvent<HTMLInputElement>) => void} type="email" placeholder="you@gmail.com" />
         </Field>
@@ -258,7 +258,7 @@ function SmtpTab({
         desc="The name and address that will appear in the From field of outgoing emails."
       />
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="From Name">
           <Input name="smtp_from_name" value={settings.smtp_from_name} onChange={onChange as (e: ChangeEvent<HTMLInputElement>) => void} placeholder="Visitor Pass" />
         </Field>
@@ -279,7 +279,7 @@ function SmtpTab({
         </div>
       )}
 
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-stretch pt-2 sm:justify-end">
         <button type="submit" disabled={saving} className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm">
           {saving
             ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
@@ -448,13 +448,13 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-slate-50">
       {/* Page header */}
       <div className="border-b border-slate-200 bg-white sticky top-0 z-10">
-        <div className="px-6 py-4">
+        <div className="px-4 py-4 sm:px-6">
           <h1 className="text-xl font-bold text-slate-900">Application Settings</h1>
           <p className="text-sm text-slate-500 mt-0.5">Manage app identity, SMTP email configuration, and more</p>
         </div>
 
         {/* Tabs */}
-        <div className="px-6 flex gap-1 border-t border-slate-100">
+        <div className="flex gap-1 overflow-x-auto border-t border-slate-100 px-4 sm:px-6">
           {TABS.map(t => (
             <button
               key={t.id}
@@ -473,7 +473,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {tab === 'general' && (
           <GeneralTab
             settings={general}

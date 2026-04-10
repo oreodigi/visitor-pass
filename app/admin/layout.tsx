@@ -1,11 +1,22 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-// ─── Nav structure ────────────────────────────────────────────
+type NavItemConfig = {
+  label: string;
+  href: string;
+  exact: boolean;
+  icon: React.ReactNode;
+};
 
-const NAV = [
+type NavSection = {
+  section: string;
+  items: NavItemConfig[];
+};
+
+const NAV: NavSection[] = [
   {
     section: 'Overview',
     items: [
@@ -144,64 +155,99 @@ const NAV = [
   },
 ];
 
-// ─── Nav item ─────────────────────────────────────────────────
+const MOBILE_PRIMARY_LINKS = [
+  '/admin',
+  '/admin/contacts',
+  '/admin/attendees',
+  '/admin/event-settings',
+];
 
-function NavItem({
-  href, label, icon, exact, pathname, onClick,
-}: {
-  href: string; label: string; icon: React.ReactNode;
-  exact: boolean; pathname: string; onClick?: () => void;
-}) {
-  const active = exact ? pathname === href : pathname.startsWith(href);
-  return (
-    <a
-      href={href}
-      onClick={onClick}
-      className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
-        active
-          ? 'bg-brand-600 text-white shadow-soft'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
-      }`}
-    >
-      <span className={`shrink-0 transition-colors ${active ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>
-        {icon}
-      </span>
-      <span className="truncate">{label}</span>
-    </a>
-  );
+function isActivePath(pathname: string, href: string, exact: boolean) {
+  return exact ? pathname === href : pathname.startsWith(href);
 }
 
-// ─── Brand logo ───────────────────────────────────────────────
+function findCurrentItem(pathname: string) {
+  return NAV.flatMap((group) => group.items).find((item) => isActivePath(pathname, item.href, item.exact));
+}
 
-function Brand() {
+function BrandBlock({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-3 px-4 h-16 border-b border-slate-800">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 shadow-soft">
+    <div className={`flex items-center gap-3 ${compact ? '' : 'h-16 border-b border-slate-800 px-4'}`}>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-violet-600 to-fuchsia-600 shadow-soft">
         <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
         </svg>
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-bold text-white leading-tight truncate">Visitor Pass</div>
-        <div className="text-[10px] font-medium text-brand-400 mt-0.5">Admin Panel</div>
+        <div className="truncate text-sm font-bold leading-tight text-white">Visitor Pass</div>
+        <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand-300">
+          Admin Control
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Sidebar nav body ─────────────────────────────────────────
+function NavItem({
+  href,
+  label,
+  icon,
+  exact,
+  pathname,
+  onClick,
+  mobile = false,
+}: NavItemConfig & {
+  pathname: string;
+  onClick?: () => void;
+  mobile?: boolean;
+}) {
+  const active = isActivePath(pathname, href, exact);
 
-function SidebarNav({ pathname, onItemClick }: { pathname: string; onItemClick?: () => void }) {
   return (
-    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+    <Link
+      href={href}
+      onClick={onClick}
+      className={`group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+        active
+          ? 'bg-gradient-to-r from-brand-600 via-violet-600 to-fuchsia-600 text-white shadow-soft'
+          : mobile
+            ? 'text-slate-200 hover:bg-slate-800/90 hover:text-white'
+            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+      }`}
+    >
+      <span className={`shrink-0 transition-colors ${active ? 'text-white' : mobile ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-300'}`}>
+        {icon}
+      </span>
+      <span className="truncate">{label}</span>
+    </Link>
+  );
+}
+
+function SidebarNav({
+  pathname,
+  onItemClick,
+  mobile = false,
+}: {
+  pathname: string;
+  onItemClick?: () => void;
+  mobile?: boolean;
+}) {
+  return (
+    <nav className={`flex-1 overflow-y-auto px-3 ${mobile ? 'py-5' : 'space-y-5 py-4'}`}>
       {NAV.map(({ section, items }) => (
-        <div key={section}>
-          <p className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+        <div key={section} className={mobile ? 'mb-5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-2.5' : ''}>
+          <p className={`mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.28em] ${mobile ? 'text-slate-500' : 'text-slate-600'}`}>
             {section}
           </p>
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {items.map((item) => (
-              <NavItem key={item.href} {...item} pathname={pathname} onClick={onItemClick} />
+              <NavItem
+                key={item.href}
+                {...item}
+                pathname={pathname}
+                onClick={onItemClick}
+                mobile={mobile}
+              />
             ))}
           </div>
         </div>
@@ -210,7 +256,53 @@ function SidebarNav({ pathname, onItemClick }: { pathname: string; onItemClick?:
   );
 }
 
-// ─── Layout ───────────────────────────────────────────────────
+function MobileDock({
+  pathname,
+  onMoreClick,
+}: {
+  pathname: string;
+  onMoreClick: () => void;
+}) {
+  const items = NAV.flatMap((section) => section.items).filter((item) => MOBILE_PRIMARY_LINKS.includes(item.href));
+
+  return (
+    <div
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white/95 backdrop-blur lg:hidden"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.35rem)' }}
+    >
+      <div className="mx-auto grid max-w-lg grid-cols-5 gap-1 px-2 pb-2 pt-2">
+        {items.map((item) => {
+          const active = isActivePath(pathname, item.href, item.exact);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold transition ${
+                active
+                  ? 'bg-slate-950 text-white shadow-soft'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <span className={active ? 'text-white' : 'text-slate-400'}>{item.icon}</span>
+              <span className="truncate">{item.label.replace('Contacts & Invites', 'Contacts').replace('Confirmed Visitors', 'Visitors')}</span>
+            </Link>
+          );
+        })}
+        <button
+          onClick={onMoreClick}
+          className="flex min-w-0 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75h.008v.008H12V6.75zm0 5.242h.008V12H12v-.008zm0 5.258h.008v.008H12v-.008z" />
+            </svg>
+          </span>
+          <span className="truncate">More</span>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -218,82 +310,117 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [mobileOpen]);
+
   async function handleLogout() {
     setLoggingOut(true);
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   }
 
+  const currentItem = useMemo(() => findCurrentItem(pathname), [pathname]);
+
   const logoutBtn = (
     <button
       onClick={handleLogout}
       disabled={loggingOut}
-      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors"
+      className="flex w-full items-center justify-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
     >
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
       </svg>
-      {loggingOut ? 'Signing out…' : 'Sign out'}
+      {loggingOut ? 'Signing out...' : 'Sign out'}
     </button>
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-
-      {/* ── Desktop Sidebar ──────────────────────────────────── */}
-      <aside className="hidden lg:flex lg:w-56 lg:flex-col lg:fixed lg:inset-y-0 bg-slate-900 border-r border-slate-800">
-        <Brand />
+    <div className="min-h-screen bg-slate-100">
+      <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-slate-800 lg:bg-slate-950">
+        <BrandBlock />
         <SidebarNav pathname={pathname} />
-        <div className="shrink-0 border-t border-slate-800 p-3">
-          {logoutBtn}
-        </div>
+        <div className="border-t border-slate-800 p-3">{logoutBtn}</div>
       </aside>
 
-      {/* ── Mobile header ────────────────────────────────────── */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-slate-800 bg-slate-900 px-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-violet-600">
-            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
-            </svg>
-          </div>
-          <span className="text-sm font-bold text-white">Visitor Pass</span>
-        </div>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+      <div className="lg:hidden">
+        <header
+          className="fixed inset-x-0 top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            {mobileOpen
-              ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              : <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />}
-          </svg>
-        </button>
-      </div>
-
-      {/* Mobile menu overlay */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-20 bg-black/60 backdrop-blur-sm"
-          onClick={() => setMobileOpen(false)}
-        >
-          <div
-            className="absolute top-14 left-0 w-72 bg-slate-900 border-r border-slate-800 shadow-panel min-h-[calc(100vh-3.5rem)] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <SidebarNav pathname={pathname} onItemClick={() => setMobileOpen(false)} />
-            <div className="shrink-0 border-t border-slate-800 p-3">
-              {logoutBtn}
+          <div className="flex h-16 items-center justify-between px-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                onClick={() => setMobileOpen(true)}
+                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950"
+                aria-label="Open menu"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                </svg>
+              </button>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-950">
+                  {currentItem?.label || 'Admin Panel'}
+                </div>
+                <div className="truncate text-xs text-slate-500">Manage events, invites, staff and check-ins</div>
+              </div>
+            </div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-violet-600 to-fuchsia-600 text-white shadow-soft">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+              </svg>
             </div>
           </div>
-        </div>
-      )}
+        </header>
 
-      {/* ── Main content ─────────────────────────────────────── */}
-      <main className="flex-1 lg:pl-56">
-        <div className="pt-14 lg:pt-0 min-h-screen">
-          {children}
-        </div>
+        {mobileOpen && (
+          <div className="fixed inset-0 z-40 bg-slate-950/55 backdrop-blur-sm" onClick={() => setMobileOpen(false)}>
+            <aside
+              className="absolute inset-y-0 left-0 flex w-[86vw] max-w-sm flex-col border-r border-slate-800 bg-slate-950 shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="border-b border-slate-800 px-4 py-5">
+                <div className="flex items-start justify-between gap-4">
+                  <BrandBlock compact />
+                  <button
+                    onClick={() => setMobileOpen(false)}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-300 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                    aria-label="Close menu"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">Current Screen</div>
+                  <div className="mt-1 text-base font-semibold text-white">{currentItem?.label || 'Admin Panel'}</div>
+                </div>
+              </div>
+              <SidebarNav pathname={pathname} onItemClick={() => setMobileOpen(false)} mobile />
+              <div className="border-t border-slate-800 p-4">{logoutBtn}</div>
+            </aside>
+          </div>
+        )}
+
+        <MobileDock pathname={pathname} onMoreClick={() => setMobileOpen(true)} />
+      </div>
+
+      <main className="lg:pl-64">
+        <div className="lg:hidden" style={{ height: 'calc(env(safe-area-inset-top) + 4rem)' }} />
+        <div className="min-h-screen pb-28 lg:pb-0">{children}</div>
       </main>
     </div>
   );

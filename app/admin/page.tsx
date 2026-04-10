@@ -22,14 +22,17 @@ function fmt12h(t: string) {
   const [h, m] = t.split(':').map(Number);
   return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
 }
+
 function fmtDate(d: string) {
   try { return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
   catch { return d; }
 }
+
 function fmtDateLong(d: string) {
-  try { return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }); }
+  try { return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
   catch { return d; }
 }
+
 function fmtRelative(ts: string) {
   const diff = Date.now() - new Date(ts).getTime();
   const mins = Math.floor(diff / 60000);
@@ -39,57 +42,167 @@ function fmtRelative(ts: string) {
   if (hrs < 24) return `${hrs}h ago`;
   return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
-function pct(a: number, b: number) { return !b ? 0 : Math.round((a / b) * 100); }
 
-function Skel({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-2xl bg-slate-200 ${className}`} />;
+function pct(a: number, b: number) {
+  return !b ? 0 : Math.round((a / b) * 100);
 }
 
-// ─── Stat card ────────────────────────────────────────────────
+function Skel({ className }: { className?: string }) {
+  return <div className={`animate-pulse rounded-3xl bg-slate-200 ${className}`} />;
+}
 
-function StatCard({ label, value, sub, gradient, icon, href }: {
-  label: string; value: string | number; sub?: string;
-  gradient: string; icon: React.ReactNode; href?: string;
+function SectionHeader({ eyebrow, title, sub }: { eyebrow: string; title: string; sub?: string }) {
+  return (
+    <div className="flex items-end justify-between gap-4">
+      <div>
+        <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">{eyebrow}</p>
+        <h2 className="mt-1 text-lg font-bold text-slate-900 sm:text-xl">{title}</h2>
+        {sub && <p className="mt-1 text-sm text-slate-500">{sub}</p>}
+      </div>
+    </div>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+  sub,
+  href,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  href?: string;
+  tone: string;
+  icon: React.ReactNode;
 }) {
   const inner = (
-    <div className={`relative overflow-hidden rounded-2xl p-4 ${gradient} shadow-sm active:scale-[.97] transition-transform`}>
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+    <div className={`group relative overflow-hidden rounded-[28px] border border-white/60 p-4 shadow-sm transition-transform duration-150 active:scale-[.985] sm:p-5 ${tone}`}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/30 to-transparent" />
+      <div className="relative flex items-start justify-between gap-4">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-slate-900 shadow-sm backdrop-blur-sm">
           {icon}
         </div>
         {href && (
-          <svg className="h-4 w-4 text-white/50" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-          </svg>
+          <div className="rounded-full bg-white/55 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">
+            Open
+          </div>
         )}
       </div>
-      <div className="text-2xl font-bold text-white tabular-nums leading-none mb-1">{value}</div>
-      {sub && <div className="text-xs text-white/70 mb-1.5">{sub}</div>}
-      <div className="text-xs font-semibold text-white/80">{label}</div>
+      <div className="relative mt-7">
+        <div className="text-3xl font-black leading-none tracking-tight text-slate-950">{value}</div>
+        {sub && <div className="mt-2 text-sm font-medium text-slate-600">{sub}</div>}
+        <div className="mt-4 text-sm font-semibold text-slate-800">{label}</div>
+      </div>
     </div>
   );
+
   return href ? <a href={href} className="block">{inner}</a> : inner;
 }
 
-// ─── Funnel row ────────────────────────────────────────────────
-
-function FunnelRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-  const w = pct(value, max);
+function SnapshotCard({
+  label,
+  value,
+  detail,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+  accent: string;
+}) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-28 sm:w-36 shrink-0 text-xs sm:text-sm text-slate-600 truncate">{label}</div>
-      <div className="flex-1 min-w-0">
-        <div className="h-2 rounded-full bg-slate-100">
-          <div className={`h-2 rounded-full ${color} transition-all duration-500`} style={{ width: `${w}%` }} />
-        </div>
-      </div>
-      <div className="w-10 sm:w-12 text-right text-xs sm:text-sm font-semibold text-slate-800 tabular-nums">{value.toLocaleString()}</div>
-      <div className="hidden sm:block w-10 text-right text-xs text-slate-400 tabular-nums">{w}%</div>
+    <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className={`h-1.5 w-16 rounded-full ${accent}`} />
+      <div className="mt-5 text-3xl font-black tracking-tight text-slate-950">{value}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-700">{label}</div>
+      <div className="mt-3 text-xs leading-relaxed text-slate-500">{detail}</div>
     </div>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────
+function FunnelMeter({
+  label,
+  value,
+  max,
+  tone,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  tone: string;
+}) {
+  const width = pct(value, max);
+  return (
+    <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-slate-900">{label}</div>
+          <div className="mt-1 text-xs text-slate-500">{width}% of uploaded audience</div>
+        </div>
+        <div className="text-right">
+          <div className="text-xl font-black tracking-tight text-slate-950">{value}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Count</div>
+        </div>
+      </div>
+      <div className="mt-4 h-2.5 rounded-full bg-slate-100">
+        <div className={`h-2.5 rounded-full transition-all duration-700 ${tone}`} style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ActionTile({
+  label,
+  href,
+  icon,
+  tone,
+  note,
+}: {
+  label: string;
+  href: string;
+  icon: string;
+  tone: string;
+  note: string;
+}) {
+  return (
+    <a
+      href={href}
+      className={`group flex min-h-[124px] flex-col justify-between rounded-[28px] p-4 text-white shadow-sm transition-transform duration-150 active:scale-[.98] ${tone}`}
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-2xl backdrop-blur-sm">
+        {icon}
+      </div>
+      <div>
+        <div className="text-base font-bold">{label}</div>
+        <div className="mt-1 text-xs leading-relaxed text-white/75">{note}</div>
+      </div>
+    </a>
+  );
+}
+
+function ActivityPill({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
+        active ? 'bg-slate-950 text-white shadow-sm' : 'bg-white text-slate-500 hover:text-slate-900'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -98,288 +211,330 @@ export default function AdminDashboard() {
   const [activityTab, setActivityTab] = useState<'checkins' | 'passes'>('checkins');
 
   async function load() {
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
     try {
       const res = await fetch('/api/admin/dashboard');
       const json = await res.json();
       if (json.success) setData(json.data);
       else setError(json.error?.message || 'Failed to load');
-    } catch { setError('Network error'); }
+    } catch {
+      setError('Network error');
+    }
     setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
 
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  const desktopToday = new Date().toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
-  const STATS = data ? [
-    { label: 'Total Events',    value: data.events.total,                       sub: `${data.events.active} active`,       gradient: 'bg-gradient-to-br from-brand-500 to-brand-700',   icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>, href: '/admin/event-settings' },
-    { label: 'Contacts',        value: data.contacts.total.toLocaleString(),    sub: `${data.contacts.invited} invited`,   gradient: 'bg-gradient-to-br from-violet-500 to-violet-700',  icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>, href: '/admin/contacts' },
-    { label: 'Confirmed',       value: data.contacts.confirmed.toLocaleString(), sub: `${pct(data.contacts.confirmed, data.contacts.total)}% of contacts`, gradient: 'bg-gradient-to-br from-amber-500 to-orange-600', icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, href: '/admin/attendees' },
-    { label: 'Passes Generated', value: data.attendees.pass_generated.toLocaleString(), sub: `${data.attendees.total} attendees`, gradient: 'bg-gradient-to-br from-purple-500 to-purple-700', icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" /></svg> },
-    { label: 'Checked In',      value: data.attendees.checked_in.toLocaleString(), sub: `${data.attendees.today} today`,  gradient: 'bg-gradient-to-br from-emerald-500 to-teal-600',  icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { label: 'Pending Entry',   value: data.attendees.pending.toLocaleString(),  sub: `${pct(data.attendees.checked_in, data.attendees.pass_generated)}% done`, gradient: 'bg-gradient-to-br from-orange-400 to-rose-500', icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { label: 'Total Staff',     value: data.staff.total,                         sub: `${data.staff.active} active`,       gradient: 'bg-gradient-to-br from-sky-500 to-cyan-600',      icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>, href: '/admin/staff' },
-    { label: 'Managers',        value: data.staff.managers,                                                                 gradient: 'bg-gradient-to-br from-rose-500 to-pink-600',     icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.562.562 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" /></svg>, href: '/admin/staff' },
-    { label: 'Gate Staff',      value: data.staff.event_staff,                                                              gradient: 'bg-gradient-to-br from-teal-500 to-emerald-600', icon: <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" /></svg>, href: '/admin/staff' },
+  const primaryStats = data ? [
+    {
+      label: 'Live Events',
+      value: data.events.active,
+      sub: `${data.events.total} total events in system`,
+      href: '/admin/event-settings',
+      tone: 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,.35),_rgba(255,255,255,.92)_45%,_rgba(224,231,255,.95)_100%)]',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>,
+    },
+    {
+      label: 'Contacts Ready',
+      value: data.contacts.total.toLocaleString(),
+      sub: `${data.contacts.invited} already invited`,
+      href: '/admin/contacts',
+      tone: 'bg-[radial-gradient(circle_at_top_left,_rgba(168,85,247,.34),_rgba(255,255,255,.92)_45%,_rgba(243,232,255,.96)_100%)]',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>,
+    },
+    {
+      label: 'Confirmed Visitors',
+      value: data.contacts.confirmed.toLocaleString(),
+      sub: `${pct(data.contacts.confirmed, data.contacts.total)}% conversion from contacts`,
+      href: '/admin/attendees',
+      tone: 'bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,.32),_rgba(255,255,255,.92)_45%,_rgba(255,237,213,.96)_100%)]',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    },
+    {
+      label: 'Passes Issued',
+      value: data.attendees.pass_generated.toLocaleString(),
+      sub: `${data.attendees.pending} still pending entry`,
+      href: '/admin/attendees',
+      tone: 'bg-[radial-gradient(circle_at_top_left,_rgba(236,72,153,.28),_rgba(255,255,255,.92)_45%,_rgba(252,231,243,.96)_100%)]',
+      icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" /></svg>,
+    },
   ] : [];
 
+  const snapshots = data ? [
+    {
+      label: 'Checked In',
+      value: data.attendees.checked_in,
+      detail: `${data.attendees.today} visitors entered today`,
+      accent: 'bg-emerald-500',
+    },
+    {
+      label: 'Pending Entry',
+      value: data.attendees.pending,
+      detail: `${pct(data.attendees.checked_in, data.attendees.pass_generated)}% scan completion rate`,
+      accent: 'bg-amber-400',
+    },
+    {
+      label: 'Managers',
+      value: data.staff.managers,
+      detail: `${data.staff.active} staff active across the operation`,
+      accent: 'bg-fuchsia-500',
+    },
+    {
+      label: 'Gate Staff',
+      value: data.staff.event_staff,
+      detail: `${data.staff.total} total team accounts configured`,
+      accent: 'bg-cyan-500',
+    },
+  ] : [];
+
+  const quickActions = [
+    { label: 'Events', href: '/admin/event-settings', icon: '🗓️', tone: 'bg-gradient-to-br from-indigo-600 via-brand-600 to-violet-600', note: 'Launch or edit event settings' },
+    { label: 'Contacts', href: '/admin/import', icon: '📤', tone: 'bg-gradient-to-br from-violet-600 to-fuchsia-600', note: 'Import fresh CSV lists fast' },
+    { label: 'Visitors', href: '/admin/attendees', icon: '✅', tone: 'bg-gradient-to-br from-emerald-600 to-teal-600', note: 'Issue passes and manage entries' },
+    { label: 'Invites', href: '/admin/contacts', icon: '📨', tone: 'bg-gradient-to-br from-amber-500 to-orange-500', note: 'Track delivery and confirmations' },
+    { label: 'Bulk Send', href: '/admin/send-invites', icon: '🚀', tone: 'bg-gradient-to-br from-rose-600 to-pink-600', note: 'Run invite campaigns in batches' },
+    { label: 'Staff', href: '/admin/staff', icon: '👥', tone: 'bg-gradient-to-br from-sky-600 to-cyan-600', note: 'Manage managers and gate teams' },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
-
-      {/* ── Mobile hero header ────────────────────────────── */}
-      <div className="lg:hidden sticky top-0 z-20 bg-gradient-to-r from-brand-700 to-violet-700 px-4 pt-4 pb-5 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-brand-200 mb-0.5">Admin Dashboard</p>
-            <h1 className="text-lg font-bold text-white leading-tight">{today}</h1>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(99,102,241,.08),_transparent_28%),linear-gradient(to_bottom,_#f8fafc,_#f8fafc)]">
+      <div className="lg:hidden sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur-xl">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">Overview</p>
+            <h1 className="mt-1 text-lg font-black tracking-tight text-slate-950">Control Room</h1>
           </div>
           <button
-            onClick={load} disabled={loading}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-white active:bg-white/25 transition-colors"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm disabled:opacity-50"
           >
-            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
           </button>
         </div>
       </div>
 
-      {/* ── Desktop header ────────────────────────────────── */}
-      <div className="hidden lg:block border-b border-slate-200 bg-white px-6 py-5">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-4 sm:px-6 sm:pb-12 sm:pt-6">
+        <div className="hidden lg:flex lg:items-end lg:justify-between lg:gap-6">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Dashboard</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
+            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Admin Overview</p>
+            <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950">Dashboard</h1>
+            <p className="mt-2 text-sm text-slate-500">{desktopToday}</p>
           </div>
           <button
-            onClick={load} disabled={loading}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 shadow-soft transition-colors"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
-            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <svg className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
-            Refresh
+            Refresh Data
           </button>
         </div>
-      </div>
 
-      <div className="px-4 sm:px-6 pb-8 pt-4 space-y-5 sm:space-y-8 max-w-7xl mx-auto">
+        <div className="mt-4 space-y-6 sm:mt-6 sm:space-y-8">
+          {error && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>
+          )}
 
-        {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-        )}
-
-        {/* ── Active event card ─────────────────────────────── */}
-        {loading ? (
-          <Skel className="h-32" />
-        ) : data?.active_event ? (
-          <a href="/admin/event-settings" className="block">
-            <div className="rounded-2xl overflow-hidden bg-gradient-to-r from-brand-700 to-violet-700 shadow-md active:scale-[.98] transition-transform">
-              <div className="px-5 py-4">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-brand-200">Active Event</span>
-                    <h2 className="text-lg font-bold text-white leading-snug mt-0.5 truncate">{data.active_event.title}</h2>
+          {loading ? (
+            <Skel className="h-[220px] sm:h-[250px]" />
+          ) : data?.active_event ? (
+            <a href="/admin/event-settings" className="block">
+              <div className="relative overflow-hidden rounded-[32px] bg-[linear-gradient(135deg,_#0f172a_0%,_#1e1b4b_35%,_#4338ca_75%,_#7c3aed_100%)] p-5 text-white shadow-[0_20px_60px_-20px_rgba(79,70,229,.45)] sm:p-7">
+                <div className="absolute -right-12 top-0 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute bottom-0 left-1/3 h-28 w-28 rounded-full bg-cyan-300/10 blur-2xl" />
+                <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="max-w-3xl">
+                    <div className="inline-flex items-center rounded-full bg-white/12 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-white/75 backdrop-blur-sm">
+                      Active Event
+                    </div>
+                    <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">{data.active_event.title}</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/72">
+                      Operations are live. Use this event as your current control point for invites, passes, check-ins, and seat coordination.
+                    </p>
+                    <div className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">Date</div>
+                        <div className="mt-1 font-semibold text-white">{fmtDateLong(data.active_event.event_date)}</div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">Window</div>
+                        <div className="mt-1 font-semibold text-white">{fmt12h(data.active_event.start_time)} - {fmt12h(data.active_event.end_time)}</div>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/55">Venue</div>
+                        <div className="mt-1 font-semibold text-white">{data.active_event.venue_name}</div>
+                      </div>
+                    </div>
                   </div>
-                  <span className={`shrink-0 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${
-                    data.active_event.status === 'active' ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' : 'bg-white/15 text-white/70'
-                  }`}>{data.active_event.status}</span>
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                  {[
-                    { icon: '📅', text: fmtDate(data.active_event.event_date) },
-                    { icon: '🕐', text: `${fmt12h(data.active_event.start_time)} – ${fmt12h(data.active_event.end_time)}` },
-                    { icon: '📍', text: data.active_event.venue_name },
-                  ].map((r, i) => (
-                    <span key={i} className="text-xs text-blue-100/80 flex items-center gap-1">
-                      <span>{r.icon}</span>{r.text}
-                    </span>
-                  ))}
+                  <div className="flex items-center justify-between gap-4 lg:block lg:text-right">
+                    <div className="inline-flex rounded-full border border-emerald-300/30 bg-emerald-400/15 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-200">
+                      {data.active_event.status}
+                    </div>
+                    <div className="mt-0 text-sm text-white/70 lg:mt-6">Tap to manage event settings</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </a>
-        ) : (
-          <a href="/admin/event-settings" className="block rounded-2xl border-2 border-dashed border-slate-200 bg-white p-5 text-center active:bg-slate-50">
-            <p className="text-sm font-medium text-slate-500">No active event</p>
-            <p className="text-xs text-brand-600 mt-1">Tap to create one →</p>
-          </a>
-        )}
-
-        {/* ── KPI stats grid ────────────────────────────────── */}
-        <section>
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3">Overview</h2>
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {Array.from({ length: 9 }).map((_, i) => <Skel key={i} className="h-28" />)}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {STATS.map((s) => <StatCard key={s.label} {...s} />)}
-            </div>
-          )}
-        </section>
-
-        {/* ── Attendance status row ─────────────────────────── */}
-        {!loading && data && (
-          <section>
-            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3">Attendance Status</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {[
-                { label: 'Checked In',     value: data.attendees.checked_in,   color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', bar: 'bg-emerald-500', pctVal: pct(data.attendees.checked_in, data.attendees.pass_generated) },
-                { label: 'Pending Entry',  value: data.attendees.pending,      color: 'text-amber-700',   bg: 'bg-amber-50 border-amber-200',     bar: 'bg-amber-400',   pctVal: pct(data.attendees.pending, data.attendees.pass_generated) },
-                { label: "Today's Check-ins", value: data.attendees.today,     color: 'text-brand-700',   bg: 'bg-brand-50 border-brand-200',     bar: 'bg-brand-500',   pctVal: pct(data.attendees.today, data.attendees.pass_generated) },
-                { label: 'Check-in Rate',  value: `${pct(data.attendees.checked_in, data.attendees.pass_generated)}%`, color: 'text-violet-700', bg: 'bg-violet-50 border-violet-200', bar: 'bg-violet-500', pctVal: pct(data.attendees.checked_in, data.attendees.pass_generated) },
-              ].map((s) => (
-                <div key={s.label} className={`rounded-2xl border ${s.bg} p-4`}>
-                  <div className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-slate-500 mt-1 leading-snug">{s.label}</div>
-                  <div className="mt-3 h-1.5 rounded-full bg-white/60">
-                    <div className={`h-1.5 rounded-full ${s.bar} transition-all duration-700`} style={{ width: `${s.pctVal}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Visitor Funnel ────────────────────────────────── */}
-        {!loading && data && (
-          <section>
-            <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3">Visitor Funnel</h2>
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5 space-y-3.5">
-              {[
-                { label: 'Uploaded',   value: data.funnel.uploaded,       color: 'bg-brand-600' },
-                { label: 'Invited',    value: data.funnel.invited,        color: 'bg-brand-500' },
-                { label: 'Submitted',  value: data.funnel.form_submitted, color: 'bg-violet-500' },
-                { label: 'Confirmed',  value: data.funnel.confirmed,      color: 'bg-violet-400' },
-                { label: 'Pass Ready', value: data.funnel.pass_generated, color: 'bg-emerald-500' },
-                { label: 'Checked In', value: data.funnel.checked_in,     color: 'bg-emerald-600' },
-              ].map((step) => (
-                <FunnelRow key={step.label} {...step} max={data.funnel.uploaded} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Quick actions ─────────────────────────────────── */}
-        <section>
-          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-3">Quick Actions</h2>
-          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label: 'Events',      href: '/admin/event-settings', bg: 'bg-brand-600',   icon: '🗓️' },
-              { label: 'Contacts',    href: '/admin/import',         bg: 'bg-violet-600',  icon: '📤' },
-              { label: 'Attendees',   href: '/admin/attendees',      bg: 'bg-emerald-600', icon: '✅' },
-              { label: 'Invites',     href: '/admin/contacts',       bg: 'bg-amber-500',   icon: '📨' },
-              { label: 'Bulk Send',   href: '/admin/send-invites',   bg: 'bg-rose-600',    icon: '📱' },
-              { label: 'Staff',       href: '/admin/staff',          bg: 'bg-sky-600',     icon: '👥' },
-            ].map((a) => (
-              <a key={a.label} href={a.href}
-                className={`flex flex-col items-center justify-center gap-2 rounded-2xl p-3.5 sm:p-4 text-center text-white ${a.bg} shadow-sm active:scale-95 transition-transform`}
-              >
-                <span className="text-2xl sm:text-3xl leading-none">{a.icon}</span>
-                <span className="text-[11px] sm:text-xs font-semibold leading-tight">{a.label}</span>
-              </a>
-            ))}
-          </div>
-        </section>
-
-        {/* ── Recent activity (tabbed on mobile) ────────────── */}
-        <section>
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 mb-3 bg-slate-100 rounded-xl p-1 w-fit">
-            {(['checkins', 'passes'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActivityTab(tab)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activityTab === tab
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                {tab === 'checkins' ? '✅ Check-ins' : '🪪 Passes'}
-              </button>
-            ))}
-            <a href={activityTab === 'passes' ? '/admin/attendees' : '#'}
-              className="ml-2 px-3 py-1.5 text-[11px] font-medium text-brand-600 hover:text-brand-700">
-              {activityTab === 'passes' ? 'View all →' : ''}
             </a>
-          </div>
-
-          {loading ? <Skel className="h-56" /> : (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-
-              {/* Check-ins tab */}
-              {activityTab === 'checkins' && (
-                <>
-                  {!data?.recent_checkins?.length ? (
-                    <div className="py-12 text-center">
-                      <p className="text-3xl mb-2">📭</p>
-                      <p className="text-sm text-slate-400">No check-ins yet</p>
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {data.recent_checkins.map((log) => (
-                        <li key={log.id} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50">
-                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                            log.status === 'valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
-                            {log.status === 'valid' ? '✓' : '!'}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-slate-900 truncate">{log.attendee_name || 'Unknown'}</div>
-                            <div className="text-xs text-slate-400 truncate">{log.attendee_pass || '—'}{log.gate_name ? ` · ${log.gate_name}` : ''}</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className={`block text-[11px] font-bold px-2 py-0.5 rounded-full mb-0.5 ${log.status === 'valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                              {log.status === 'valid' ? 'Valid' : 'Dup'}
-                            </span>
-                            <span className="text-[10px] text-slate-400">{fmtRelative(log.created_at)}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-
-              {/* Passes tab */}
-              {activityTab === 'passes' && (
-                <>
-                  {!data?.recent_confirmations?.length ? (
-                    <div className="py-12 text-center">
-                      <p className="text-3xl mb-2">🪪</p>
-                      <p className="text-sm text-slate-400">No passes generated yet</p>
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {data.recent_confirmations.map((a) => (
-                        <li key={a.id} className="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
-                            {(a.name || '?').charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-semibold text-slate-900 truncate">{a.name || 'Unknown'}</div>
-                            <div className="text-xs text-slate-400">{a.mobile}</div>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-xs font-mono font-bold text-slate-700">{a.pass_number}</div>
-                            <div className="text-[10px] text-slate-400">{fmtRelative(a.created_at)}</div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              )}
-            </div>
+          ) : (
+            <a href="/admin/event-settings" className="block rounded-[30px] border-2 border-dashed border-slate-300 bg-white px-6 py-10 text-center shadow-sm">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 text-slate-400">
+                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+                </svg>
+              </div>
+              <h2 className="mt-5 text-2xl font-black tracking-tight text-slate-950">No active event</h2>
+              <p className="mt-2 text-sm text-slate-500">Create or activate an event to unlock the invite, pass, and check-in flow.</p>
+            </a>
           )}
-        </section>
 
+          <section className="space-y-4">
+            <SectionHeader eyebrow="Live Numbers" title="Overview" sub="The operational snapshot you need first, optimized for quick scanning on desktop and mobile." />
+            {loading ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => <Skel key={i} className="h-44" />)}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {primaryStats.map((stat) => <MetricTile key={stat.label} {...stat} />)}
+              </div>
+            )}
+          </section>
+
+          {!loading && data && (
+            <section className="space-y-4">
+              <SectionHeader eyebrow="Operational Health" title="Attendance & Team" sub="A tighter summary of entry pressure, staffing, and visitor movement." />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {snapshots.map((snapshot) => <SnapshotCard key={snapshot.label} {...snapshot} />)}
+              </div>
+            </section>
+          )}
+
+          {!loading && data && (
+            <section className="space-y-4">
+              <SectionHeader eyebrow="Pipeline" title="Visitor Funnel" sub="Track movement from uploaded lead to physical check-in without losing mobile readability." />
+              <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                {[
+                  { label: 'Uploaded', value: data.funnel.uploaded, tone: 'bg-brand-600' },
+                  { label: 'Invited', value: data.funnel.invited, tone: 'bg-violet-500' },
+                  { label: 'Submitted', value: data.funnel.form_submitted, tone: 'bg-fuchsia-500' },
+                  { label: 'Confirmed', value: data.funnel.confirmed, tone: 'bg-amber-500' },
+                  { label: 'Pass Ready', value: data.funnel.pass_generated, tone: 'bg-emerald-500' },
+                  { label: 'Checked In', value: data.funnel.checked_in, tone: 'bg-cyan-500' },
+                ].map((step) => (
+                  <FunnelMeter key={step.label} label={step.label} value={step.value} max={data.funnel.uploaded} tone={step.tone} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          <section className="space-y-4">
+            <SectionHeader eyebrow="Actions" title="Move Faster" sub="High-frequency admin tasks grouped for thumb access on mobile and rapid execution on desktop." />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+              {quickActions.map((action) => <ActionTile key={action.label} {...action} />)}
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <SectionHeader
+                eyebrow="Activity"
+                title="Recent Movement"
+                sub={activityTab === 'checkins' ? 'Latest entry activity from the gate.' : 'Most recent confirmed visitors and issued passes.'}
+              />
+              <div className="flex items-center gap-2 rounded-full bg-slate-100 p-1">
+                <ActivityPill active={activityTab === 'checkins'} label="Check-ins" onClick={() => setActivityTab('checkins')} />
+                <ActivityPill active={activityTab === 'passes'} label="Passes" onClick={() => setActivityTab('passes')} />
+              </div>
+            </div>
+
+            {loading ? (
+              <Skel className="h-72" />
+            ) : (
+              <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+                {activityTab === 'checkins' && (
+                  <>
+                    {!data?.recent_checkins?.length ? (
+                      <div className="px-6 py-14 text-center">
+                        <div className="text-4xl">📭</div>
+                        <div className="mt-3 text-base font-semibold text-slate-700">No check-ins yet</div>
+                        <div className="mt-1 text-sm text-slate-400">Gate activity will appear here once scanning starts.</div>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-slate-100">
+                        {data.recent_checkins.map((log) => (
+                          <li key={log.id} className="flex items-start gap-3 px-4 py-4 transition-colors hover:bg-slate-50 sm:px-6">
+                            <div className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
+                              log.status === 'valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {log.status === 'valid' ? 'IN' : 'DU'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-bold text-slate-950 sm:text-base">{log.attendee_name || 'Unknown visitor'}</div>
+                              <div className="mt-1 text-xs text-slate-500 sm:text-sm">
+                                {log.attendee_pass || 'No pass'}{log.gate_name ? ` · ${log.gate_name}` : ''}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${
+                                log.status === 'valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {log.status}
+                              </div>
+                              <div className="mt-2 text-[11px] font-medium text-slate-400">{fmtRelative(log.created_at)}</div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+
+                {activityTab === 'passes' && (
+                  <>
+                    {!data?.recent_confirmations?.length ? (
+                      <div className="px-6 py-14 text-center">
+                        <div className="text-4xl">🎟️</div>
+                        <div className="mt-3 text-base font-semibold text-slate-700">No passes generated yet</div>
+                        <div className="mt-1 text-sm text-slate-400">Confirmed visitors will appear here as soon as passes are issued.</div>
+                      </div>
+                    ) : (
+                      <ul className="divide-y divide-slate-100">
+                        {data.recent_confirmations.map((a) => (
+                          <li key={a.id} className="flex items-start gap-3 px-4 py-4 transition-colors hover:bg-slate-50 sm:px-6">
+                            <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-100 text-sm font-black text-brand-700">
+                              {(a.name || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-bold text-slate-950 sm:text-base">{a.name || 'Unknown visitor'}</div>
+                              <div className="mt-1 text-xs text-slate-500 sm:text-sm">{a.mobile}</div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className="text-xs font-black tracking-wide text-slate-800">{a.pass_number || 'Pending'}</div>
+                              <div className="mt-2 text-[11px] font-medium text-slate-400">{fmtRelative(a.created_at)}</div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </div>
   );

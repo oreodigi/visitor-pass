@@ -333,7 +333,7 @@ export default function TeamPage() {
   ] as const;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
@@ -355,7 +355,7 @@ export default function TeamPage() {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Team Management</h1>
           <p className="text-sm text-slate-500 mt-0.5">{total} user{total !== 1 ? 's' : ''} across all roles</p>
@@ -369,8 +369,8 @@ export default function TeamPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+        <div className="flex overflow-x-auto rounded-lg border border-slate-200 bg-white p-0.5 gap-0.5">
           {ROLE_TABS.map((t) => (
             <button
               key={t.value}
@@ -411,6 +411,75 @@ export default function TeamPage() {
             <button onClick={openAdd} className="text-sm font-semibold text-brand-600 hover:underline">Add your first user</button>
           </div>
         ) : (
+          <>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {staff.map((u) => {
+              const isSelf = u.id === currentUserId;
+              return (
+                <div key={u.id} className={`p-4 ${isSelf ? 'bg-brand-50/30' : 'bg-white'}`}>
+                  <div className="flex items-start gap-3">
+                    <Avatar name={u.name} role={u.role} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">
+                            {u.name}
+                            {isSelf && <span className="ml-1.5 rounded-full bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-600">You</span>}
+                          </p>
+                          {u.designation && <p className="mt-0.5 truncate text-xs text-slate-400">{u.designation}</p>}
+                        </div>
+                        <StatusBadge active={u.active} />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <RoleBadge role={u.role} />
+                        {!isSelf && u.role !== 'admin' && (
+                          <button
+                            onClick={() => openAssignments(u)}
+                            className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+                          >
+                            {u.assignment_count} event{u.assignment_count !== 1 ? 's' : ''}
+                          </button>
+                        )}
+                      </div>
+                      <div className="mt-3 space-y-1 text-xs text-slate-500">
+                        <p className="truncate">{u.email || 'No email'}</p>
+                        <p className="font-mono">{u.mobile}</p>
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <button onClick={() => openEdit(u)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700">
+                          Edit
+                        </button>
+                        {u.role !== 'admin' ? (
+                          <button onClick={() => openAssignments(u)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700">
+                            Events
+                          </button>
+                        ) : (
+                          <div />
+                        )}
+                        {!isSelf && (
+                          <button
+                            onClick={() => toggleActive(u)}
+                            className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700"
+                          >
+                            {u.active ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
+                        {!isSelf && (
+                          <button
+                            onClick={() => setDeleteTarget(u)}
+                            className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm font-semibold text-red-700"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="table-header">
@@ -528,14 +597,16 @@ export default function TeamPage() {
               })}
             </tbody>
           </table>
+          </div>
+          </>
         )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4">
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-slate-500">Page {page} of {totalPages}</p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors">
               Previous
@@ -550,8 +621,8 @@ export default function TeamPage() {
 
       {/* Add / Edit Panel */}
       {panelOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm">
-          <div className="relative h-full w-full max-w-md bg-white shadow-panel flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm md:items-start md:justify-end">
+          <div className="relative flex max-h-[92vh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white shadow-panel md:h-full md:max-h-none md:max-w-md md:rounded-none">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <h2 className="text-base font-bold text-slate-900">
                 {panelMode === 'add' ? 'Add New User' : 'Edit User'}
@@ -563,7 +634,7 @@ export default function TeamPage() {
               </button>
             </div>
 
-            <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col p-6 gap-4">
+            <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col gap-4 p-5 md:p-6">
               <div>
                 <label className="input-label">Full Name *</label>
                 <input type="text" required value={form.name}
@@ -634,7 +705,7 @@ export default function TeamPage() {
                 <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700">{formError}</div>
               )}
 
-              <div className="flex gap-3 mt-auto pt-2">
+              <div className="mt-auto grid grid-cols-1 gap-2 pt-2 sm:flex sm:gap-3">
                 <button type="button" onClick={() => setPanelOpen(false)}
                   className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                   Cancel
@@ -650,8 +721,8 @@ export default function TeamPage() {
 
       {/* Assignments Panel */}
       {assignPanelOpen && assignUser && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm">
-          <div className="relative h-full w-full max-w-md bg-white shadow-panel flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm md:items-start md:justify-end">
+          <div className="relative flex max-h-[92vh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white shadow-panel md:h-full md:max-h-none md:max-w-md md:rounded-none">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">Event Assignments</h2>
@@ -664,7 +735,7 @@ export default function TeamPage() {
               </button>
             </div>
 
-            <div className="flex-1 p-6 flex flex-col gap-5">
+            <div className="flex-1 p-5 flex flex-col gap-5 md:p-6">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
                 <h3 className="text-sm font-semibold text-slate-700 mb-3">Assign to Event</h3>
                 <div className="flex flex-col gap-3">

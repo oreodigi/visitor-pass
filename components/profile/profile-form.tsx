@@ -263,12 +263,12 @@ export default function ProfileForm() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="border-b border-slate-200 bg-white sticky top-0 z-10 px-6 py-4">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
         <h1 className="text-xl font-bold text-slate-900">My Profile</h1>
         <p className="text-sm text-slate-500 mt-0.5">Manage your account details and password</p>
       </div>
 
-      <div className="p-6 max-w-3xl mx-auto">
+      <div className="mx-auto max-w-3xl p-4 sm:p-6">
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
 
           {/* ── Left card — avatar + identity ──────── */}
@@ -325,7 +325,7 @@ export default function ProfileForm() {
           {/* ── Right — forms ──────────────────────── */}
           <div className="rounded-2xl bg-white border border-slate-200 shadow-sm overflow-hidden">
             {/* Section tabs */}
-            <div className="flex border-b border-slate-200">
+            <div className="flex overflow-x-auto border-b border-slate-200">
               {([
                 { id: 'profile' as Section, label: 'Account Info' },
                 { id: 'password' as Section, label: 'Change Password' },
@@ -355,7 +355,7 @@ export default function ProfileForm() {
                     />
                   </FormField>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <FormField label="Email Address">
                       <input
                         type="email" value={email}
@@ -381,7 +381,7 @@ export default function ProfileForm() {
 
                   {profileMsg && <Alert msg={profileMsg} />}
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-stretch pt-2 sm:justify-end">
                     <button type="submit" disabled={savingProfile} className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm">
                       {savingProfile
                         ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
@@ -439,7 +439,7 @@ export default function ProfileForm() {
 
                   {pwdMsg && <Alert msg={pwdMsg} />}
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex justify-stretch pt-2 sm:justify-end">
                     <button type="submit" disabled={savingPwd} className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 text-sm">
                       {savingPwd
                         ? <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Changing…</>

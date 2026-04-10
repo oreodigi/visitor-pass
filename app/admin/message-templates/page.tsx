@@ -185,20 +185,20 @@ export default function MessageTemplatesPage() {
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors font-mono resize-none';
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50">
       <EventSelectorBar onChange={handleEventChange} />
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between px-5 py-3">
-          <div>
+        <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
             <h1 className="text-sm font-bold text-slate-900">Message Templates</h1>
             <p className="text-[11px] text-slate-400">Customise WhatsApp messages and pass terms</p>
           </div>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs"
+            className="btn-primary inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs"
           >
             {saving ? (
               <><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
@@ -223,7 +223,7 @@ export default function MessageTemplatesPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex border-t border-slate-100 px-5 gap-0">
+        <div className="flex overflow-x-auto border-t border-slate-100 px-4 gap-0 sm:px-5">
           {([
             { key: 'invite', label: 'Invitation Message' },
             { key: 'pass',   label: 'Confirmation / Pass Message' },
@@ -244,10 +244,10 @@ export default function MessageTemplatesPage() {
       </div>
 
       {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col lg:flex-row">
 
         {/* Left: Editor */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5 sm:px-5">
 
           {tab === 'invite' && (
             <>
@@ -365,13 +365,13 @@ export default function MessageTemplatesPage() {
         </div>
 
         {/* Right: Preview */}
-        <div className="hidden lg:flex w-80 xl:w-96 shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
+        <div className="w-full border-t border-slate-200 bg-white lg:flex lg:w-80 lg:shrink-0 lg:flex-col lg:border-l lg:border-t-0 xl:w-96">
           <div className="px-5 py-4 border-b border-slate-100">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Live Preview</p>
             <p className="text-[10px] text-slate-400 mt-0.5">Using sample data</p>
           </div>
 
-          <div className="flex-1 p-5 bg-[#e5ddd5]">
+          <div className="flex-1 p-4 bg-[#e5ddd5] sm:p-5">
             {tab === 'invite' && (
               <WaPreview text={invitePreview()} />
             )}
@@ -388,7 +388,7 @@ export default function MessageTemplatesPage() {
             )}
           </div>
 
-          <div className="shrink-0 border-t border-slate-200 p-4">
+          <div className="shrink-0 border-t border-slate-200 p-4 lg:hidden">
             <button
               onClick={handleSave}
               disabled={saving}
@@ -396,6 +396,20 @@ export default function MessageTemplatesPage() {
             >
               {saving ? (
                 <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
+              ) : (
+                <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Save Templates</>
+              )}
+            </button>
+          </div>
+
+          <div className="hidden shrink-0 border-t border-slate-200 p-4 lg:block">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn-primary w-full inline-flex items-center justify-center gap-2 py-2.5 text-sm"
+            >
+              {saving ? (
+                <><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving...</>
               ) : (
                 <><svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>Save Templates</>
               )}

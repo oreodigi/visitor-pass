@@ -148,8 +148,8 @@ export default function ManagerDashboard() {
     <div className="min-h-screen bg-slate-50">
 
       {/* Page header */}
-      <div className="border-b border-slate-200 bg-white px-6 py-5">
-        <div className="flex items-center justify-between">
+      <div className="border-b border-slate-200 bg-white px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Manager Dashboard</h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -169,7 +169,7 @@ export default function ManagerDashboard() {
         </div>
       </div>
 
-      <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <div className="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
 
         {error && (
           <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -182,12 +182,12 @@ export default function ManagerDashboard() {
 
         {/* Event selector */}
         {!loading && data && data.assigned_events.length > 1 && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             {data.assigned_events.map((ev) => (
               <button
                 key={ev.id}
                 onClick={() => setSelectedEventId(ev.id)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium transition-all border ${
+                className={`whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-medium transition-all ${
                   selectedEventId === ev.id
                     ? 'bg-brand-600 text-white border-brand-600 shadow-soft'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -228,7 +228,7 @@ export default function ManagerDashboard() {
             {/* Event card */}
             <div className="card overflow-hidden">
               <div className="bg-gradient-to-r from-brand-700 to-violet-700 px-6 py-5">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold text-brand-300 uppercase tracking-widest mb-1.5">Assigned Event</p>
                     <h2 className="text-xl font-bold text-white">{selectedEvent.title}</h2>
@@ -286,7 +286,7 @@ export default function ManagerDashboard() {
             {/* Progress bar */}
             {selectedEvent.stats.total_attendees > 0 && (
               <div className="card p-5">
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <span className="text-sm font-semibold text-slate-700">Check-in Progress</span>
                   <span className="text-sm font-bold text-brand-600">
                     {pct(selectedEvent.stats.checked_in, selectedEvent.stats.total_attendees)}%
@@ -348,8 +348,8 @@ export default function ManagerDashboard() {
             <div className="card overflow-hidden">
               <ul className="divide-y divide-slate-100">
                 {data.recent_checkins.map((log) => (
-                  <li key={log.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <li key={log.id} className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-center gap-3">
                       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
                         log.status === 'valid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
                       }`}>
@@ -370,7 +370,7 @@ export default function ManagerDashboard() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <div className="flex items-center gap-2 shrink-0 sm:ml-2">
                       <span className={`badge ${log.status === 'valid' ? 'badge-green' : 'badge-amber'}`}>
                         {log.status === 'valid' ? 'New' : 'Dup'}
                       </span>
