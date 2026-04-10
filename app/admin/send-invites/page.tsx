@@ -5,15 +5,17 @@ import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/eve
 import { AdminHero, InlineStatus, MetricTile, SurfaceCard } from '@/app/admin/_components/admin-surface';
 import type { BulkSendProgress } from '@/lib/wa-sender';
 
-type WaStatus = 'idle' | 'initializing' | 'qr_ready' | 'authenticated' | 'ready' | 'disconnected';
+type WaStatus = 'idle' | 'disabled' | 'initializing' | 'qr_ready' | 'authenticated' | 'ready' | 'disconnected';
 
 interface WaState {
   status: WaStatus;
   qrDataUrl: string | null;
+  reason?: string | null;
 }
 
 const STATUS_COPY: Record<WaStatus, string> = {
   idle: 'Not connected',
+  disabled: 'Worker unavailable here',
   initializing: 'Starting WhatsApp Web...',
   qr_ready: 'Scan the QR code with your phone',
   authenticated: 'Authenticated, loading...',
@@ -76,7 +78,9 @@ export default function SendInvitesPage() {
     fetch('/api/whatsapp')
       .then((r) => r.json())
       .then((data) => {
-        if (data.success) setWaState(data.data);
+        if (!data.success) return;
+        setWaState(data.data);
+        if (data.data?.status === 'disabled') setError(null);
       });
   }, []);
 
@@ -113,7 +117,13 @@ export default function SendInvitesPage() {
       const res = await fetch('/api/whatsapp', { method: 'POST' });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error?.message || 'WhatsApp connection is unavailable on this server');
+        const message = data.error?.message || 'WhatsApp connection is unavailable on this server';
+        if (data.error?.code === 'WHATSAPP_DISABLED') {
+          setWaState({ status: 'disabled', qrDataUrl: null, reason: message });
+        } else {
+          setError(message);
+        }
+        return;
       }
       pollWaStatus();
     } catch {
@@ -131,7 +141,13 @@ export default function SendInvitesPage() {
       const res = await fetch('/api/whatsapp', { method: 'POST' });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error?.message || 'WhatsApp connection is unavailable on this server');
+        const message = data.error?.message || 'WhatsApp connection is unavailable on this server';
+        if (data.error?.code === 'WHATSAPP_DISABLED') {
+          setWaState({ status: 'disabled', qrDataUrl: null, reason: message });
+        } else {
+          setError(message);
+        }
+        return;
       }
       pollWaStatus();
     } catch {
@@ -191,6 +207,7 @@ export default function SendInvitesPage() {
 
   const isRunning = progress?.status === 'running';
   const isConnected = waState.status === 'ready';
+  const isWaBlocked = waState.status === 'disabled';
   const percent = progress && progress.total > 0 ? Math.round(((progress.sent + progress.failed) / progress.total) * 100) : 0;
   const avgDelay = (config.minDelay + config.maxDelay) / 2;
   const estimatedSeconds = pendingCount != null ? Math.round((pendingCount * avgDelay) + ((Math.ceil(pendingCount / config.batchSize) - 1) * config.batchBreak)) : null;
@@ -207,7 +224,7 @@ export default function SendInvitesPage() {
           {selectedEvent ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricTile label="Pending Contacts" value={pendingCount ?? '...'} note="Uploaded plus invited contacts not yet confirmed" tone="indigo" variant="dark" />
-              <MetricTile label="Connection" value={isConnected ? 'Ready' : 'Offline'} note={STATUS_COPY[waState.status]} tone={isConnected ? 'emerald' : 'amber'} variant="dark" />
+              <MetricTile label="Connection" value={isConnected ? 'Ready' : isWaBlocked ? 'Blocked' : 'Offline'} note={STATUS_COPY[waState.status]} tone={isConnected ? 'emerald' : 'amber'} variant="dark" />
               <MetricTile label="Estimated Runtime" value={estimatedSeconds != null ? fmtSeconds(Math.max(estimatedSeconds, 0)) : '...'} note="Based on current delay and batch settings" tone="slate" variant="dark" />
               <MetricTile label="Progress" value={`${percent}%`} note="Current run completion rate" tone="sky" variant="dark" />
             </div>
@@ -221,7 +238,14 @@ export default function SendInvitesPage() {
             <SurfaceCard eyebrow="Session" title="WhatsApp connection" description="This session controls WhatsApp Web from your logged-in browser session. Keep the tab alive while sending.">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-3">
-                  <InlineStatus tone={isConnected ? 'emerald' : waState.status === 'qr_ready' ? 'amber' : 'slate'}>{STATUS_COPY[waState.status]}</InlineStatus>
+                  <InlineStatus tone={isConnected ? 'emerald' : waState.status === 'qr_ready' ? 'amber' : isWaBlocked ? 'rose' : 'slate'}>{STATUS_COPY[waState.status]}</InlineStatus>
+                  {isWaBlocked ? (
+                    <div className="max-w-xl rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <p className="font-semibold">WhatsApp worker is not running on this runtime.</p>
+                      <p className="mt-1">{waState.reason || 'Run the WhatsApp worker on local/VPS/persistent Node, not on Vercel serverless.'}</p>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Local/VPS: remove WHATSAPP_ENABLED=false, or set WHATSAPP_ENABLED=true, then restart.</p>
+                    </div>
+                  ) : null}
                   {waState.status === 'qr_ready' && waState.qrDataUrl ? (
                     <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
                       <img src={waState.qrDataUrl} alt="WhatsApp QR" className="h-56 w-56 max-w-full" />
@@ -230,7 +254,11 @@ export default function SendInvitesPage() {
                   ) : null}
                 </div>
                 <div className="grid gap-2 sm:flex">
-                  {waState.status === 'idle' || waState.status === 'disconnected' ? (
+                  {isWaBlocked ? (
+                    <button onClick={pollWaStatus} disabled={connecting} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50">
+                      Refresh Status
+                    </button>
+                  ) : waState.status === 'idle' || waState.status === 'disconnected' ? (
                     <button onClick={handleConnect} disabled={connecting} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
                       {connecting ? 'Connecting...' : 'Connect WhatsApp'}
                     </button>
@@ -239,7 +267,7 @@ export default function SendInvitesPage() {
                       {connecting ? 'Restarting...' : isConnected ? 'Reconnect WhatsApp' : 'Restart Connection'}
                     </button>
                   )}
-                  {waState.status !== 'idle' && (
+                  {waState.status !== 'idle' && !isWaBlocked && (
                     <button onClick={handleDisconnect} disabled={connecting} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50">
                       Disconnect
                     </button>
@@ -278,7 +306,7 @@ export default function SendInvitesPage() {
               <div className={`space-y-4 ${!isConnected ? 'pointer-events-none opacity-50' : ''}`}>
                 <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
                   <p className="text-sm font-semibold text-slate-900">{pendingCount != null ? `${pendingCount} contacts ready for invite sending` : 'Loading contact count...'}</p>
-                  <p className="mt-1 text-sm text-slate-500">Keep delays at 45 seconds or above for a safer delivery rhythm.</p>
+                  <p className="mt-1 text-sm text-slate-500">{isWaBlocked ? 'Move this worker to local/VPS/persistent Node before starting a send run.' : 'Keep delays at 45 seconds or above for a safer delivery rhythm.'}</p>
                 </div>
                 <div className="grid gap-2 sm:flex">
                   {isRunning ? (
