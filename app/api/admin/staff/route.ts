@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { requireRole, AuthError, hashPassword } from '@/lib/auth';
 import { apiSuccess, apiError, sanitizeString, isValidMobile, normalizeMobile } from '@/lib/utils';
 import { createServerClient } from '@/lib/supabase/server';
+import { sendWelcomeEmail } from '@/lib/mailer';
 
 // GET /api/admin/staff?role=manager|gate_staff&active=true|false&page=1
 export async function GET(request: NextRequest) {
@@ -112,6 +113,16 @@ export async function POST(request: NextRequest) {
       console.error('create staff error:', error);
       return apiError('Failed to create staff user', 500);
     }
+
+    // Send welcome email (non-blocking — don't fail the request if email fails)
+    sendWelcomeEmail({
+      to: email,
+      name,
+      email,
+      password,
+      role: role as 'admin' | 'manager' | 'gate_staff',
+      designation,
+    }).catch((err) => console.error('welcome email error:', err));
 
     return apiSuccess({ user: { ...user, assignment_count: 0 } }, 201);
   } catch (err) {
