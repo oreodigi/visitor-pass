@@ -12,6 +12,7 @@ import {
   getAvailableSeats,
   type SeatMapConfig,
 } from '@/lib/seat-map';
+import { readFallbackSeatMapConfig } from '@/lib/seat-map-storage';
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -62,7 +63,7 @@ async function getPassEventContext(
   }
 
   // Backward-compatible fallback for databases that have not run the
-  // seat-map migration yet. Pass generation can still proceed without seat maps.
+  // seat-map migration yet. We read the config from app_settings instead.
   const fallback = await db
     .from('events')
     .select('id, title, event_date')
@@ -73,10 +74,15 @@ async function getPassEventContext(
     return { error: fallback.error?.message || 'Event not found' };
   }
 
+  const seatMapFallback = await readFallbackSeatMapConfig(db, eventId);
+  if (seatMapFallback.error) {
+    return { error: seatMapFallback.error };
+  }
+
   return {
     data: {
       ...(fallback.data as { id: string; title: string; event_date: string }),
-      seat_map_config: null,
+      seat_map_config: seatMapFallback.data ?? null,
     },
   };
 }

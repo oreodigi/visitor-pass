@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { requireRole, AuthError } from '@/lib/auth';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { createServerClient } from '@/lib/supabase/server';
+import { loadSeatMapConfig, saveSeatMapConfig } from '@/lib/seat-map-storage';
 
 // GET /api/events/seat-map?event_id=xxx
 export async function GET(request: NextRequest) {
@@ -16,13 +17,8 @@ export async function GET(request: NextRequest) {
 
     const db = createServerClient();
 
-    const { data: event, error: evErr } = await db
-      .from('events')
-      .select('seat_map_config')
-      .eq('id', eventId)
-      .single();
-
-    if (evErr || !event) return apiError('Event not found', 404);
+    const seatMapResult = await loadSeatMapConfig(db, eventId);
+    if (seatMapResult.error) return apiError(seatMapResult.error, 404);
 
     // Occupied seats = attendees that already have a seat_number assigned
     const { data: occupiedRows } = await db
@@ -37,8 +33,9 @@ export async function GET(request: NextRequest) {
       .filter(Boolean);
 
     return apiSuccess({
-      seat_map_config: event.seat_map_config ?? null,
+      seat_map_config: seatMapResult.data ?? null,
       occupied,
+      source: seatMapResult.source || 'events',
     });
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
@@ -62,17 +59,12 @@ export async function PUT(request: NextRequest) {
 
     const db = createServerClient();
 
-    const { error } = await db
-      .from('events')
-      .update({ seat_map_config: seat_map_config ?? null })
-      .eq('id', event_id);
-
-    if (error) {
-      console.error('Save seat map DB error:', error);
-      return apiError('Failed to save seat map', 500);
+    const result = await saveSeatMapConfig(db, event_id, (seat_map_config ?? null) as import('@/lib/seat-map').SeatMapConfig | null);
+    if (result.error) {
+      return apiError(result.error, result.error === 'Event not found' ? 404 : 500);
     }
 
-    return apiSuccess({ saved: true });
+    return apiSuccess({ saved: true, source: result.source || 'events' });
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     console.error('PUT /api/events/seat-map error:', err);

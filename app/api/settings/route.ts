@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server';
 import { requireRole, AuthError } from '@/lib/auth';
 import { apiSuccess, apiError, sanitizeString } from '@/lib/utils';
 import { createServerClient } from '@/lib/supabase/server';
+import { LOGO_BUCKET } from '@/lib/constants';
+import { uploadPublicFile } from '@/lib/storage';
 
 const ALLOWED_KEYS = [
   'app_name', 'app_tagline', 'app_logo_url', 'support_email', 'support_phone',
@@ -78,13 +80,9 @@ export async function POST(request: NextRequest) {
     if (file.size === 0) return apiError('File is empty', 400);
     if (file.size > 2 * 1024 * 1024) return apiError('File must be under 2MB', 400);
 
-    // Resolve extension from name; determine content-type from ext if browser omits it
     const rawExt = (file.name.split('.').pop() || 'png').toLowerCase();
-    const extMap: Record<string, string> = {
-      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
-    };
-    const contentType = extMap[rawExt] || file.type;
     const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    const contentType = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
     if (!allowedTypes.includes(contentType)) {
       return apiError('Only PNG, JPG, or WEBP images are allowed', 400);
     }
@@ -92,32 +90,26 @@ export async function POST(request: NextRequest) {
     const db = createServerClient();
     const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
     const fileName = `app-logo/logo-${Date.now()}.${ext}`;
+    const uploadResult = await uploadPublicFile(db, {
+      bucket: LOGO_BUCKET,
+      path: fileName,
+      file,
+    });
 
-    // Convert File to Buffer for reliable upload
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const { error: uploadErr } = await db.storage
-      .from('event-logos')
-      .upload(fileName, buffer, { cacheControl: '3600', upsert: true, contentType });
-
-    if (uploadErr) {
-      console.error('app logo upload error:', JSON.stringify(uploadErr));
-      return apiError(`Upload failed: ${uploadErr.message}`, 500);
+    if (uploadResult.error || !uploadResult.url) {
+      return apiError(`Upload failed: ${uploadResult.error || 'Unknown error'}`, 500);
     }
-
-    const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(fileName);
 
     const { error: saveErr } = await db
       .from('app_settings')
-      .upsert({ key: 'app_logo_url', value: publicUrl }, { onConflict: 'key' });
+      .upsert({ key: 'app_logo_url', value: uploadResult.url }, { onConflict: 'key' });
 
     if (saveErr) {
       console.error('app logo save error:', JSON.stringify(saveErr));
       return apiError('Logo uploaded but failed to save URL', 500);
     }
 
-    return apiSuccess({ logo_url: publicUrl });
+    return apiSuccess({ logo_url: uploadResult.url });
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     console.error('settings POST error:', err);

@@ -4,6 +4,8 @@ import { NextRequest } from 'next/server';
 import { requireAuth, AuthError, hashPassword, verifyPassword, setSessionCookie, createSessionToken } from '@/lib/auth';
 import { apiSuccess, apiError, sanitizeString, isValidMobile, normalizeMobile } from '@/lib/utils';
 import { createServerClient } from '@/lib/supabase/server';
+import { AVATAR_BUCKET } from '@/lib/constants';
+import { uploadPublicFile } from '@/lib/storage';
 
 // GET /api/profile — current user's full profile from DB
 export async function GET() {
@@ -163,24 +165,19 @@ export async function POST(request: NextRequest) {
     const db = createServerClient();
     const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
     const fileName = `avatars/${session.id}/avatar-${Date.now()}.${ext}`;
+    const uploadResult = await uploadPublicFile(db, {
+      bucket: AVATAR_BUCKET,
+      path: fileName,
+      file,
+    });
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const { error: uploadErr } = await db.storage
-      .from('event-logos')
-      .upload(fileName, buffer, { cacheControl: '3600', upsert: true, contentType });
-
-    if (uploadErr) {
-      console.error('avatar upload error:', JSON.stringify(uploadErr));
-      return apiError(`Failed to upload avatar: ${uploadErr.message}`, 500);
+    if (uploadResult.error || !uploadResult.url) {
+      return apiError(`Failed to upload avatar: ${uploadResult.error || 'Unknown error'}`, 500);
     }
-
-    const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(fileName);
 
     const { error: saveErr } = await db
       .from('users')
-      .update({ profile_picture_url: publicUrl, updated_at: new Date().toISOString() })
+      .update({ profile_picture_url: uploadResult.url, updated_at: new Date().toISOString() })
       .eq('id', session.id);
 
     if (saveErr) {
@@ -188,7 +185,7 @@ export async function POST(request: NextRequest) {
       return apiError('Avatar uploaded but failed to save URL', 500);
     }
 
-    return apiSuccess({ avatar_url: publicUrl });
+    return apiSuccess({ avatar_url: uploadResult.url });
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     return apiError('Internal server error', 500);

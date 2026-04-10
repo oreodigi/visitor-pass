@@ -3,6 +3,7 @@ export const APP_NAME = 'MSME Visitor Pass';
 export const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024; // 2MB
 export const ALLOWED_LOGO_TYPES = ['image/png', 'image/jpeg', 'image/jpg'];
 export const LOGO_BUCKET = 'event-logos';
+export const AVATAR_BUCKET = 'avatars';
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;

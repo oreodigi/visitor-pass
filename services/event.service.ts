@@ -5,6 +5,7 @@ import {
   MAX_LOGO_SIZE_BYTES,
   LOGO_BUCKET,
 } from '@/lib/constants';
+import { uploadPublicFile } from '@/lib/storage';
 import type {
   CreateEventPayload,
   UpdateEventPayload,
@@ -306,18 +307,17 @@ export async function uploadPartnerLogo(
   const db = createServerClient();
   const ext = file.name.split('.').pop() || 'png';
   const fileName = `${eventId}/partners/partner-${Date.now()}.${ext}`;
+  const uploadResult = await uploadPublicFile(db, {
+    bucket: LOGO_BUCKET,
+    path: fileName,
+    file,
+  });
 
-  const { error: uploadError } = await db.storage
-    .from(LOGO_BUCKET)
-    .upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
-
-  if (uploadError) {
-    console.error('Partner logo upload error:', uploadError);
-    return { error: 'Failed to upload logo' };
+  if (uploadResult.error || !uploadResult.url) {
+    return { error: uploadResult.error || 'Failed to upload logo' };
   }
 
-  const { data: { publicUrl } } = db.storage.from(LOGO_BUCKET).getPublicUrl(fileName);
-  return { url: publicUrl };
+  return { url: uploadResult.url };
 }
 
 // ── Upload Logo ───────────────────────────────────────────
@@ -339,30 +339,20 @@ export async function uploadLogo(
   const db = createServerClient();
   const ext = file.name.split('.').pop() || 'png';
   const fileName = `${eventId}/logo-${Date.now()}.${ext}`;
+  const uploadResult = await uploadPublicFile(db, {
+    bucket: LOGO_BUCKET,
+    path: fileName,
+    file,
+  });
 
-  // Upload to Supabase Storage
-  const { error: uploadError } = await db.storage
-    .from(LOGO_BUCKET)
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: true,
-      contentType: file.type,
-    });
-
-  if (uploadError) {
-    console.error('Logo upload error:', uploadError);
-    return { error: 'Failed to upload logo' };
+  if (uploadResult.error || !uploadResult.url) {
+    return { error: uploadResult.error || 'Failed to upload logo' };
   }
-
-  // Get public URL
-  const {
-    data: { publicUrl },
-  } = db.storage.from(LOGO_BUCKET).getPublicUrl(fileName);
 
   // Update event record
   const { error: updateError } = await db
     .from('events')
-    .update({ logo_url: publicUrl })
+    .update({ logo_url: uploadResult.url })
     .eq('id', eventId);
 
   if (updateError) {
@@ -370,5 +360,5 @@ export async function uploadLogo(
     return { error: 'Logo uploaded but failed to update event' };
   }
 
-  return { url: publicUrl };
+  return { url: uploadResult.url };
 }
