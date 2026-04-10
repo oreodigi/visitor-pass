@@ -389,10 +389,10 @@ function EditView({
   const isNew = !event.id;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-h-screen flex-col bg-slate-50">
       {/* Edit header */}
       <div className="shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex items-center gap-3 px-5 py-3">
+        <div className="flex flex-wrap items-center gap-3 px-4 py-4 sm:px-5">
           <button
             onClick={onBack}
             className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
@@ -418,7 +418,7 @@ function EditView({
             </a>
           )}
           <button form="event-form" type="submit" disabled={saving}
-            className="btn-primary inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs">
+            className="btn-primary inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs">
             {saving
               ? <><span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />Saving…</>
               : <><svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>{isNew ? 'Create Event' : 'Save Changes'}</>
@@ -443,15 +443,15 @@ function EditView({
       </div>
 
       {/* Body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col lg:flex-row">
 
         {/* ── Form column ─────────────────────────────────── */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5">
           <form id="event-form" onSubmit={onSubmit} className="space-y-3">
 
             {/* Row 1: Title + Status */}
-            <div className="grid grid-cols-4 gap-2.5">
-              <div className="col-span-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-4">
+              <div className="sm:col-span-3">
                 <label htmlFor="title" className="input-label">Event Title <span className="text-red-500">*</span></label>
                 <input id="title" name="title" value={event.title} onChange={onChange}
                   className="input-field" placeholder="e.g. MSME Awareness Program 2026" required />
@@ -468,7 +468,7 @@ function EditView({
             </div>
 
             {/* Row 2: Date + Start + End + Max Visitors + VIP Seats */}
-            <div className="grid grid-cols-5 gap-2.5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
               <div>
                 <label htmlFor="event_date" className="input-label">Date <span className="text-red-500">*</span></label>
                 <input id="event_date" name="event_date" type="date" value={event.event_date} onChange={onChange} className="input-field" required />
@@ -523,8 +523,8 @@ function EditView({
             </div>
 
             {/* Row 5: Footer Note + Logo Upload */}
-            <div className="grid grid-cols-4 gap-2.5 items-start">
-              <div className="col-span-3">
+            <div className="grid grid-cols-1 gap-2.5 items-start sm:grid-cols-4">
+              <div className="sm:col-span-3">
                 <label htmlFor="footer_note" className="input-label">Footer Note</label>
                 <input id="footer_note" name="footer_note" value={event.footer_note} onChange={onChange}
                   className="input-field" placeholder="e.g. Organized by District Industries Centre, Jalgaon" />
@@ -541,7 +541,7 @@ function EditView({
 
             {/* Partners & Sponsors */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold text-slate-700">Partners &amp; Sponsors</p>
                 <button type="button" onClick={onAddPartner}
                   className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-100 transition-colors">
@@ -575,7 +575,7 @@ function EditView({
 
             {/* Danger zone */}
             {!isNew && (
-              <div className="rounded-xl border border-red-200 bg-red-50/60 px-4 py-3 flex items-center justify-between gap-4">
+              <div className="rounded-xl border border-red-200 bg-red-50/60 px-4 py-3 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-bold text-red-800">Delete this event</p>
                   <p className="text-[11px] text-red-600 mt-0.5">
@@ -993,7 +993,7 @@ export default function EventsPage() {
   // ── Edit mode ─────────────────────────────────────────────
   if (mode === 'edit') {
     return (
-      <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+      <div className="min-h-screen flex flex-col bg-slate-50">
         {deleteTarget && (
           <DeleteModal
             event={deleteTarget}
@@ -1036,8 +1036,8 @@ export default function EventsPage() {
       )}
 
       {/* Page header */}
-      <div className="border-b border-slate-200 bg-white sticky top-0 z-10">
-        <div className="flex items-center justify-between px-6 py-4">
+      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+        <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <h1 className="text-xl font-bold text-slate-900">Events</h1>
             <p className="text-sm text-slate-500 mt-0.5">
@@ -1074,7 +1074,7 @@ export default function EventsPage() {
       </div>
 
       {/* Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {events.length === 0 ? (
           /* Empty state */
           <div className="flex flex-col items-center justify-center py-24 text-center">

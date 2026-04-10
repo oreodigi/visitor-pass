@@ -176,7 +176,7 @@ function RowConfigItem({
       </div>
 
       {/* Row 2: From / To seat numbers + Aisle */}
-      <div className="flex items-end gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end">
         {/* From */}
         <div className="flex flex-col gap-0.5">
           <label className="text-[10px] font-medium text-slate-500">From seat</label>
@@ -204,14 +204,14 @@ function RowConfigItem({
         </div>
 
         {/* Count badge */}
-        <div className="mb-1.5">
+        <div className="col-span-2 mb-1.5 sm:col-span-1">
           <span className="text-xs text-slate-500 bg-slate-100 rounded-md px-2 py-1 font-mono">
             {row.count} seat{row.count !== 1 ? 's' : ''}
           </span>
         </div>
 
         {/* Aisle */}
-        <div className="flex flex-col gap-0.5 ml-auto">
+        <div className="flex flex-col gap-0.5 sm:ml-auto">
           <label className="text-[10px] font-medium text-slate-500">Aisle after</label>
           <input
             type="number"
@@ -533,10 +533,10 @@ export default function SeatMapPage() {
       )}
 
       {!loading && (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 lg:py-8">
+    <div className="mx-auto w-full max-w-7xl px-4 py-5 lg:py-8">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Seat Map</h1>
           <p className="mt-0.5 text-sm text-slate-500">
@@ -546,7 +546,7 @@ export default function SeatMapPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-soft hover:bg-brand-700 transition-colors disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-brand-700 disabled:opacity-60"
         >
           {saving ? (
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
@@ -591,7 +591,7 @@ export default function SeatMapPage() {
       </div>
 
       {/* Body */}
-      <div className="flex flex-col xl:flex-row gap-5">
+      <div className="flex flex-col gap-5 xl:flex-row">
 
         {/* Left: Row config */}
         <div className="xl:w-96 shrink-0">
@@ -631,9 +631,9 @@ export default function SeatMapPage() {
             </button>
 
             {rows.length > 0 && (
-              <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700 space-y-1">
+              <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700 space-y-1">
                 <p className="font-semibold">Tips:</p>
-                <ul className="list-disc list-inside space-y-0.5 text-blue-600">
+                <ul className="space-y-1 text-blue-600">
                   <li>Use <strong>From / To</strong> to define any seat range (e.g. 11→20)</li>
                   <li>Same row label with different ranges = two sections (e.g. left &amp; right block)</li>
                   <li><strong>Duplicate</strong> copies the row and starts where it ends</li>
@@ -646,7 +646,7 @@ export default function SeatMapPage() {
 
         {/* Right: Visual seat map */}
         <div className="flex-1 min-w-0">
-          <div className="card p-5">
+          <div className="card p-4 sm:p-5">
             {rows.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
@@ -683,7 +683,7 @@ export default function SeatMapPage() {
                 </div>
 
                 {/* Legend */}
-                <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">
+                <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
                   <span className="text-xs font-semibold text-slate-500">Legend:</span>
                   <LegendItem cls="bg-amber-50 border-amber-400" label="Gold" />
                   <LegendItem cls="bg-emerald-50 border-emerald-400" label="Silver" />
