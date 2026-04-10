@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
     mobile: normalizedMobile,
     email: email?.trim() || undefined,
     company_name: company_name?.trim() || undefined,
+    app_origin: request.nextUrl.origin,
   });
 
   if (result.error) {

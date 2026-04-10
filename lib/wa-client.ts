@@ -2,13 +2,11 @@
 // Uses whatsapp-web.js (Puppeteer + WhatsApp Web) for automated sending.
 // Runs as a persistent Node.js global — survives API request cycles.
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { Client, LocalAuth } = require('whatsapp-web.js');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const QRCode = require('qrcode');
+import { getWhatsAppRuntimeBlockReason } from './runtime';
 
 export type WaStatus =
   | 'idle'
+  | 'disabled'
   | 'initializing'
   | 'qr_ready'
   | 'authenticated'
@@ -20,6 +18,7 @@ interface WaGlobal {
   client: any | null;
   status: WaStatus;
   qrDataUrl: string | null;
+  reason?: string | null;
 }
 
 declare global {
@@ -29,24 +28,45 @@ declare global {
 
 function g(): WaGlobal {
   if (!global.__wa) {
-    global.__wa = { client: null, status: 'idle', qrDataUrl: null };
+    global.__wa = { client: null, status: 'idle', qrDataUrl: null, reason: null };
   }
   return global.__wa;
 }
 
-export function getWaStatus(): { status: WaStatus; qrDataUrl: string | null } {
+export function getWaStatus(): { status: WaStatus; qrDataUrl: string | null; reason?: string | null } {
   const s = g();
-  return { status: s.status, qrDataUrl: s.qrDataUrl };
+  const blockedReason = getWhatsAppRuntimeBlockReason();
+  if (blockedReason) {
+    s.status = 'disabled';
+    s.reason = blockedReason;
+    s.qrDataUrl = null;
+  }
+  return { status: s.status, qrDataUrl: s.qrDataUrl, reason: s.reason ?? null };
 }
 
 export function initWaClient(): void {
   const s = g();
+  const blockedReason = getWhatsAppRuntimeBlockReason();
+  if (blockedReason) {
+    s.status = 'disabled';
+    s.reason = blockedReason;
+    s.qrDataUrl = null;
+    s.client = null;
+    throw new Error(blockedReason);
+  }
   if (s.status === 'ready' || s.status === 'initializing' || s.status === 'qr_ready' || s.status === 'authenticated') {
     return; // already in progress
   }
 
   s.status = 'initializing';
   s.qrDataUrl = null;
+  s.reason = null;
+
+  // Lazy-load heavy runtime deps only when this worker is actually allowed.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Client, LocalAuth } = require('whatsapp-web.js');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const QRCode = require('qrcode');
 
   const client = new Client({
     authStrategy: new LocalAuth({ dataPath: '.wwebjs_auth' }),
@@ -101,8 +121,9 @@ export async function disconnectWaClient(): Promise<void> {
     try { await s.client.destroy(); } catch { /* ignore */ }
   }
   s.client = null;
-  s.status = 'idle';
+  s.status = getWhatsAppRuntimeBlockReason() ? 'disabled' : 'idle';
   s.qrDataUrl = null;
+  s.reason = getWhatsAppRuntimeBlockReason();
 }
 
 export async function sendWaMessage(
@@ -110,6 +131,12 @@ export async function sendWaMessage(
   message: string
 ): Promise<{ success: boolean; error?: string }> {
   const s = g();
+  const blockedReason = getWhatsAppRuntimeBlockReason();
+  if (blockedReason) {
+    s.status = 'disabled';
+    s.reason = blockedReason;
+    return { success: false, error: blockedReason };
+  }
   if (!s.client || s.status !== 'ready') {
     return { success: false, error: 'WhatsApp not connected' };
   }

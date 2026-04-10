@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { requireRole, AuthError } from '@/lib/auth';
+import { getWhatsAppRuntimeBlockReason } from '@/lib/runtime';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { getWaStatus, initWaClient, disconnectWaClient } from '@/lib/wa-client';
 
@@ -20,6 +21,8 @@ export async function GET(_request: NextRequest) {
 export async function POST(_request: NextRequest) {
   try {
     await requireRole('admin');
+    const blockedReason = getWhatsAppRuntimeBlockReason();
+    if (blockedReason) return apiError(blockedReason, 400, 'WHATSAPP_DISABLED');
     initWaClient();
     return apiSuccess({ message: 'Initializing WhatsApp client…' });
   } catch (err) {

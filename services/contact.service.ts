@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { buildAppUrl } from '@/lib/app-url';
 import { generateInviteToken } from '@/lib/token';
 import { normalizeMobile, isValidMobile, sanitizeString } from '@/lib/utils';
 import type {
@@ -7,13 +8,12 @@ import type {
   ImportContactsResult,
 } from '@/types';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-
 // ── Import Contacts from CSV ──────────────────────────────
 
 export async function importContacts(
   eventId: string,
-  rows: Array<{ mobile: string }>
+  rows: Array<{ mobile: string }>,
+  appOrigin?: string
 ): Promise<ImportContactsResult> {
   const result: ImportContactsResult = {
     total_rows: rows.length,
@@ -79,7 +79,7 @@ export async function importContacts(
       event_id: eventId,
       mobile,
       invitation_token: token,
-      invitation_link: `${APP_URL}/invite/${token}`,
+      invitation_link: buildAppUrl(`/i/${token}`, appOrigin),
     });
   }
 

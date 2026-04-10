@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     const contacts = rows.map((r) => ({ mobile: r.mobile || '' }));
 
-    const result = await importContacts(eventId, contacts);
+    const result = await importContacts(eventId, contacts, request.nextUrl.origin);
     return apiSuccess(result, 200);
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);

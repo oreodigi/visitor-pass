@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
       return apiError('attendee_id is required', 400);
     }
 
-    const result = await generatePassForAttendee(attendee_id, force === true);
+    const result = await generatePassForAttendee(
+      attendee_id,
+      force === true,
+      request.nextUrl.origin
+    );
 
     if (result.error) {
       const status = result.error.includes('not found') ? 404 : 400;

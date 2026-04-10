@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { apiSuccess, apiError, sanitizeString } from '@/lib/utils';
+import { buildAppUrl } from '@/lib/app-url';
 import { createServerClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
@@ -56,8 +57,7 @@ export async function POST(request: NextRequest) {
     (settings || []).forEach((row) => { s[row.key] = row.value; });
 
     const appName = s.app_name || 'Visitor Pass';
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const resetUrl = `${appUrl}/reset-password/${token}`;
+    const resetUrl = buildAppUrl(`/reset-password/${token}`, request.nextUrl.origin);
 
     // Send email if SMTP is configured
     if (s.smtp_host && s.smtp_user && s.smtp_password) {

@@ -2,6 +2,8 @@
 // Supports both hardcoded defaults and custom templates stored in the DB.
 // Custom templates use {{variable}} placeholders.
 
+import { normalizePublicUrl } from './app-url';
+
 export interface EventContext {
   title?: string;
   event_date?: string;
@@ -130,7 +132,7 @@ export function buildInviteWhatsAppLink(
   inviteLink: string,
   ctx?: EventContext,
 ): string {
-  const message = buildInviteMessage(inviteLink, ctx);
+  const message = buildInviteMessage(normalizePublicUrl(inviteLink), ctx);
   return `https://wa.me/${toInternational(mobile)}?text=${encodeURIComponent(message)}`;
 }
 
@@ -141,6 +143,6 @@ export function buildPassWhatsAppLink(
   seatNumber: string,
   ctx?: EventContext,
 ): string {
-  const message = buildPassMessage(name, passLink, seatNumber, ctx);
+  const message = buildPassMessage(name, normalizePublicUrl(passLink), seatNumber, ctx);
   return `https://wa.me/${toInternational(mobile)}?text=${encodeURIComponent(message)}`;
 }

@@ -270,8 +270,9 @@ export async function createConfirmedAttendee(params: {
   mobile: string;
   email?: string;
   company_name?: string;
+  app_origin?: string;
 }): Promise<{ data?: SubmitInviteResult; error?: string }> {
-  const { event_id, contact_id, name, mobile, email, company_name } = params;
+  const { event_id, contact_id, name, mobile, email, company_name, app_origin } = params;
 
   const normalizedMobile = normalizeMobile(mobile);
   if (!isValidMobile(normalizedMobile)) {
@@ -280,11 +281,42 @@ export async function createConfirmedAttendee(params: {
 
   const db = createServerClient();
 
+  // Re-resolve the contact at submit time so pass generation never depends on
+  // stale client state or a partially-shaped relation payload.
+  const { data: contactRow, error: contactErr } = await db
+    .from('contacts')
+    .select('id, event_id, status')
+    .eq('id', contact_id)
+    .single();
+
+  if (contactErr || !contactRow) {
+    return { error: 'Invitation contact not found' };
+  }
+
+  if (contactRow.status === 'cancelled') {
+    return { error: 'This invitation has been cancelled' };
+  }
+
+  const resolvedEventId = contactRow.event_id || event_id;
+  if (!resolvedEventId) {
+    return { error: 'Event not found' };
+  }
+
+  const { data: eventRow, error: eventErr } = await db
+    .from('events')
+    .select('id')
+    .eq('id', resolvedEventId)
+    .single();
+
+  if (eventErr || !eventRow) {
+    return { error: 'Event not found' };
+  }
+
   // Check no existing confirmed attendee with same mobile for this event
   const { data: existing } = await db
     .from('attendees')
     .select('id, pass_url, pass_number, seat_number')
-    .eq('event_id', event_id)
+    .eq('event_id', resolvedEventId)
     .eq('mobile', normalizedMobile)
     .single();
 
@@ -307,7 +339,7 @@ export async function createConfirmedAttendee(params: {
   const { data: attendee, error: createErr } = await db
     .from('attendees')
     .insert({
-      event_id,
+      event_id: resolvedEventId,
       name: sanitizeString(name),
       mobile: normalizedMobile,
       email: email ? sanitizeString(email) : null,
@@ -327,7 +359,7 @@ export async function createConfirmedAttendee(params: {
   }
 
   // Generate pass (assigns seat_number + pass_number + qr_token)
-  const passResult = await generatePassForAttendee(attendee.id);
+  const passResult = await generatePassForAttendee(attendee.id, false, app_origin);
 
   if (passResult.error || !passResult.data) {
     // Roll back attendee record to keep DB clean

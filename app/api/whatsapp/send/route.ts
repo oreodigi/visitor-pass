@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest } from 'next/server';
 import { requireRole, AuthError } from '@/lib/auth';
+import { normalizePublicUrl } from '@/lib/app-url';
+import { getWhatsAppRuntimeBlockReason } from '@/lib/runtime';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { startBulkSend, stopBulkSend, DEFAULT_CONFIG, type BulkSendConfig } from '@/lib/wa-sender';
 import { getPendingContacts } from '@/services/contact.service';
@@ -12,6 +14,8 @@ import { type EventContext } from '@/lib/whatsapp';
 export async function POST(request: NextRequest) {
   try {
     await requireRole('admin');
+    const blockedReason = getWhatsAppRuntimeBlockReason();
+    if (blockedReason) return apiError(blockedReason, 400, 'WHATSAPP_DISABLED');
 
     const body = await request.json().catch(() => ({}));
     const eventId = body.event_id as string;
@@ -30,7 +34,10 @@ export async function POST(request: NextRequest) {
       return apiError(result.error || 'Failed to load contacts', 500);
     }
 
-    const contacts = result.data;
+    const contacts = result.data.map((contact) => ({
+      ...contact,
+      invitation_link: normalizePublicUrl(contact.invitation_link, request.nextUrl.origin),
+    }));
     if (contacts.length === 0) {
       return apiError('No pending contacts to send invites to', 400, 'NO_CONTACTS');
     }

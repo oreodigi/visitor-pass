@@ -1,16 +1,17 @@
 import { randomBytes } from 'crypto';
 
 // ── QR Token Generation (for event passes) ────────────────
-// Format: vp_<32 hex chars> = 35 chars total
-// Entropy: 128 bits
+// Legacy format: vp_<32 hex chars>
+// Current format: vp_<12 base64url chars>
+// Entropy remains strong while keeping links shorter.
 
 const TOKEN_PREFIX = 'vp_';
-const TOKEN_BYTE_LENGTH = 16;
-const TOKEN_REGEX = /^vp_[a-f0-9]{32}$/;
+const TOKEN_BYTE_LENGTH = 9;
+const TOKEN_REGEX = /^vp_(?:[a-f0-9]{32}|[A-Za-z0-9_-]{12})$/;
 
 export function generateSecureToken(): string {
   const bytes = randomBytes(TOKEN_BYTE_LENGTH);
-  return TOKEN_PREFIX + bytes.toString('hex');
+  return TOKEN_PREFIX + bytes.toString('base64url');
 }
 
 export function isValidToken(token: string): boolean {
@@ -18,15 +19,16 @@ export function isValidToken(token: string): boolean {
 }
 
 // ── Invite Token Generation (for form invitation links) ───
-// Format: inv_<32 hex chars> = 36 chars total
-// Entropy: 128 bits — separate namespace from pass tokens
+// Legacy format: inv_<32 hex chars>
+// Current format: inv_<12 base64url chars>
+// Separate namespace from pass tokens.
 
 const INVITE_TOKEN_PREFIX = 'inv_';
-const INVITE_TOKEN_REGEX = /^inv_[a-f0-9]{32}$/;
+const INVITE_TOKEN_REGEX = /^inv_(?:[a-f0-9]{32}|[A-Za-z0-9_-]{12})$/;
 
 export function generateInviteToken(): string {
   const bytes = randomBytes(TOKEN_BYTE_LENGTH);
-  return INVITE_TOKEN_PREFIX + bytes.toString('hex');
+  return INVITE_TOKEN_PREFIX + bytes.toString('base64url');
 }
 
 export function isValidInviteToken(token: string): boolean {

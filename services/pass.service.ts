@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server';
+import { buildAppUrl } from '@/lib/app-url';
 import {
   generateSecureToken,
   buildPassPrefix,
@@ -34,13 +35,13 @@ export interface BulkGenerateResult {
 // ── Constants ─────────────────────────────────────────────
 
 const MAX_TOKEN_RETRIES = 5;
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
 // ── Generate Pass for Single Attendee ─────────────────────
 
 export async function generatePassForAttendee(
   attendeeId: string,
-  force = false
+  force = false,
+  appOrigin?: string
 ): Promise<{ data?: GeneratePassResult; error?: string }> {
   const db = createServerClient();
 
@@ -90,7 +91,7 @@ export async function generatePassForAttendee(
   if (sequence === null) return { error: 'Failed to generate unique pass number' };
 
   const passNumber = formatPassNumber(prefix, sequence);
-  const passUrl = `${APP_URL}/p/${qrToken}`;
+  const passUrl = buildAppUrl(`/p/${qrToken}`, appOrigin);
 
   // Determine seat number: use seat map if configured, else sequential fallback
   let seatNumber: string;
@@ -131,7 +132,8 @@ export async function generatePassForAttendee(
 export async function bulkGeneratePasses(
   eventId: string,
   attendeeIds?: string[],
-  force = false
+  force = false,
+  appOrigin?: string
 ): Promise<BulkGenerateResult> {
   const result: BulkGenerateResult = {
     total_requested: 0,
@@ -240,7 +242,7 @@ export async function bulkGeneratePasses(
       qr_token: token,
       pass_number: formatPassNumber(prefix, nextSeq),
       seat_number: seatNumber,
-      pass_url: `${APP_URL}/p/${token}`,
+      pass_url: buildAppUrl(`/p/${token}`, appOrigin),
     });
     nextSeq++;
   }
@@ -272,7 +274,7 @@ export async function bulkGeneratePasses(
         continue;
       }
       update.qr_token = newToken;
-      update.pass_url = `${APP_URL}/p/${newToken}`;
+      update.pass_url = buildAppUrl(`/p/${newToken}`, appOrigin);
     }
 
     const { error: updateErr } = await db
@@ -372,7 +374,7 @@ export async function getPublicPassByToken(
         checked_in_at: attendee.checked_in_at,
       },
       event,
-      pass_url: attendee.pass_url || `${APP_URL}/p/${token}`,
+      pass_url: attendee.pass_url || buildAppUrl(`/p/${token}`),
     },
   };
 }

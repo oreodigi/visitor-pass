@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     const result = await bulkGeneratePasses(
       event_id,
       attendee_ids,
-      force === true
+      force === true,
+      request.nextUrl.origin
     );
 
     return apiSuccess(result);

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { buildAppUrl } from '@/lib/app-url';
 import { createServerClient } from '@/lib/supabase/server';
 
 // ─── Load SMTP config from app_settings ──────────────────────
@@ -109,8 +110,7 @@ export async function sendWelcomeEmail(opts: WelcomeEmailOptions): Promise<void>
   const transporter = makeTransporter(s);
 
   const appName = s.app_name || 'Visitor Pass';
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-  const loginUrl = `${appUrl}/login`;
+  const loginUrl = buildAppUrl('/login');
   const roleName = ROLE_LABEL[opts.role] || opts.role;
   const roleColor = ROLE_COLOR[opts.role] || '#4f46e5';
 
