@@ -211,11 +211,11 @@ function NavItem({
         active
           ? 'bg-gradient-to-r from-brand-600 via-violet-600 to-fuchsia-600 text-white shadow-soft'
           : mobile
-            ? 'text-slate-200 hover:bg-slate-800/90 hover:text-white'
-            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+            ? 'text-slate-100 hover:bg-slate-800/90 hover:text-white'
+            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
       }`}
     >
-      <span className={`shrink-0 transition-colors ${active ? 'text-white' : mobile ? 'text-slate-400 group-hover:text-slate-200' : 'text-slate-500 group-hover:text-slate-300'}`}>
+      <span className={`shrink-0 transition-colors ${active ? 'text-white' : mobile ? 'text-slate-300 group-hover:text-white' : 'text-slate-400 group-hover:text-white'}`}>
         {icon}
       </span>
       <span className="truncate">{label}</span>
@@ -236,7 +236,7 @@ function SidebarNav({
     <nav className={`flex-1 overflow-y-auto px-3 ${mobile ? 'py-5' : 'space-y-5 py-4'}`}>
       {NAV.map(({ section, items }) => (
         <div key={section} className={mobile ? 'mb-5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-2.5' : ''}>
-          <p className={`mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.28em] ${mobile ? 'text-slate-500' : 'text-slate-600'}`}>
+          <p className={`mb-2 px-3 text-[11px] font-black uppercase tracking-[0.28em] ${mobile ? 'text-slate-300' : 'text-slate-400'}`}>
             {section}
           </p>
           <div className="space-y-1">

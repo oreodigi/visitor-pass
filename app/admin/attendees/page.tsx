@@ -363,10 +363,10 @@ export default function AttendeesPage() {
         >
           {selectedEvent ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricTile label="Total Attendees" value={data?.total ?? '...'} note="Confirmed visitors with generated passes" tone="indigo" />
-              <MetricTile label="Pass Ready" value={stats.ready} note="Not checked in yet on this page snapshot" tone="emerald" />
-              <MetricTile label="Checked In" value={stats.checkedIn} note="Already admitted at the venue" tone="amber" />
-              <MetricTile label="Selected" value={selectedIds.size} note="Bulk resend, regenerate, or delete actions" tone="slate" />
+              <MetricTile label="Total Attendees" value={data?.total ?? '...'} note="Confirmed visitors with generated passes" tone="indigo" variant="dark" />
+              <MetricTile label="Pass Ready" value={stats.ready} note="Not checked in yet on this page snapshot" tone="emerald" variant="dark" />
+              <MetricTile label="Checked In" value={stats.checkedIn} note="Already admitted at the venue" tone="amber" variant="dark" />
+              <MetricTile label="Selected" value={selectedIds.size} note="Bulk resend, regenerate, or delete actions" tone="slate" variant="dark" />
             </div>
           ) : null}
         </AdminHero>

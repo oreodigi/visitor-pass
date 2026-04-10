@@ -137,9 +137,9 @@ export default function ImportPage() {
         >
           {selectedEvent ? (
             <div className="grid gap-3 sm:grid-cols-3">
-              <MetricTile label="Import Modes" value="2" note="CSV upload or direct paste list" tone="indigo" />
-              <MetricTile label="Validation" value="Auto" note="Invalid and duplicate numbers are filtered out before insert" tone="emerald" />
-              <MetricTile label="Output" value={totalReady} note="Contacts ready to receive invite links after import" tone="amber" />
+              <MetricTile label="Import Modes" value="2" note="CSV upload or direct paste list" tone="indigo" variant="dark" />
+              <MetricTile label="Validation" value="Auto" note="Invalid and duplicate numbers are filtered out before insert" tone="emerald" variant="dark" />
+              <MetricTile label="Output" value={totalReady} note="Contacts ready to receive invite links after import" tone="amber" variant="dark" />
             </div>
           ) : null}
         </AdminHero>

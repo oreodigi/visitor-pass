@@ -316,10 +316,10 @@ export default function ContactsPage() {
         >
           {selectedEvent ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricTile label="Total Contacts" value={data?.total ?? '...'} note="Rows currently stored for this event" tone="indigo" />
-              <MetricTile label="Confirmed" value={currentPageStats.confirmed} note="Confirmed visitors on this page snapshot" tone="emerald" />
-              <MetricTile label="Awaiting Send" value={currentPageStats.pendingSend} note="Contacts still eligible for invite sending" tone="amber" />
-              <MetricTile label="Selected" value={selectedIds.size} note="Bulk actions become available when contacts are selected" tone="slate" />
+              <MetricTile label="Total Contacts" value={data?.total ?? '...'} note="Rows currently stored for this event" tone="indigo" variant="dark" />
+              <MetricTile label="Confirmed" value={currentPageStats.confirmed} note="Confirmed visitors on this page snapshot" tone="emerald" variant="dark" />
+              <MetricTile label="Awaiting Send" value={currentPageStats.pendingSend} note="Contacts still eligible for invite sending" tone="amber" variant="dark" />
+              <MetricTile label="Selected" value={selectedIds.size} note="Bulk actions become available when contacts are selected" tone="slate" variant="dark" />
             </div>
           ) : null}
         </AdminHero>

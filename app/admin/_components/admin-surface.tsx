@@ -18,9 +18,9 @@ export function AdminHero({
       <div className="px-5 py-6 sm:px-7 sm:py-8">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-sky-100/60">{eyebrow}</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-[2.2rem]">{title}</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-200 sm:text-[15px]">{description}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.32em] text-sky-100/75">{eyebrow}</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-[2.35rem]">{title}</h1>
+            <p className="mt-3 max-w-2xl text-base leading-8 text-slate-100/95">{description}</p>
           </div>
           {actions ? <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">{actions}</div> : null}
         </div>
@@ -35,11 +35,13 @@ export function MetricTile({
   value,
   note,
   tone = 'indigo',
+  variant = 'light',
 }: {
   label: string;
   value: string | number;
   note: string;
   tone?: 'indigo' | 'emerald' | 'amber' | 'rose' | 'sky' | 'slate';
+  variant?: 'light' | 'dark';
 }) {
   const toneMap: Record<string, string> = {
     indigo: 'from-indigo-500/18 to-violet-500/8 border-indigo-200 text-indigo-700',
@@ -50,11 +52,21 @@ export function MetricTile({
     slate: 'from-slate-400/18 to-slate-200/8 border-slate-200 text-slate-700',
   };
 
+  if (variant === 'dark') {
+    return (
+      <div className="rounded-[24px] border border-white/20 bg-white/[0.08] p-4 shadow-sm ring-1 ring-white/5 backdrop-blur">
+        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/70">{label}</p>
+        <p className="mt-3 text-3xl font-black tracking-tight text-white">{value}</p>
+        <p className="mt-2 text-sm font-medium leading-6 text-white/78">{note}</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`rounded-[24px] border bg-gradient-to-br p-4 shadow-sm ${toneMap[tone]}`}>
-      <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-500">{label}</p>
-      <p className="mt-3 text-2xl font-bold text-slate-950">{value}</p>
-      <p className="mt-2 text-xs leading-5 text-slate-500">{note}</p>
+      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-slate-600">{label}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
+      <p className="mt-2 text-sm font-medium leading-6 text-slate-600">{note}</p>
     </div>
   );
 }
@@ -77,8 +89,8 @@ export function SurfaceCard({
       <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           {eyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">{eyebrow}</p> : null}
-          <h2 className="mt-1 text-lg font-bold text-slate-950">{title}</h2>
-          {description ? <p className="mt-1 text-sm leading-6 text-slate-500">{description}</p> : null}
+          <h2 className="mt-1 text-xl font-bold text-slate-950">{title}</h2>
+          {description ? <p className="mt-1 text-[15px] leading-7 text-slate-600">{description}</p> : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -103,7 +115,7 @@ export function InlineStatus({
   };
 
   return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${toneMap[tone]}`}>
+    <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-bold ${toneMap[tone]}`}>
       {children}
     </div>
   );
@@ -126,8 +138,8 @@ export function EmptyPanel({
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9m-4.5-4.5v9" />
         </svg>
       </div>
-      <h3 className="mt-4 text-lg font-bold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{description}</p>
+      <h3 className="mt-4 text-xl font-bold text-slate-900">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-[15px] leading-7 text-slate-600">{description}</p>
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );

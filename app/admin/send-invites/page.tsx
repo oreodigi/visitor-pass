@@ -174,10 +174,10 @@ export default function SendInvitesPage() {
         >
           {selectedEvent ? (
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricTile label="Pending Contacts" value={pendingCount ?? '...'} note="Uploaded plus invited contacts not yet confirmed" tone="indigo" />
-              <MetricTile label="Connection" value={isConnected ? 'Ready' : 'Offline'} note={STATUS_COPY[waState.status]} tone={isConnected ? 'emerald' : 'amber'} />
-              <MetricTile label="Estimated Runtime" value={estimatedSeconds != null ? fmtSeconds(Math.max(estimatedSeconds, 0)) : '...'} note="Based on current delay and batch settings" tone="slate" />
-              <MetricTile label="Progress" value={`${percent}%`} note="Current run completion rate" tone="sky" />
+              <MetricTile label="Pending Contacts" value={pendingCount ?? '...'} note="Uploaded plus invited contacts not yet confirmed" tone="indigo" variant="dark" />
+              <MetricTile label="Connection" value={isConnected ? 'Ready' : 'Offline'} note={STATUS_COPY[waState.status]} tone={isConnected ? 'emerald' : 'amber'} variant="dark" />
+              <MetricTile label="Estimated Runtime" value={estimatedSeconds != null ? fmtSeconds(Math.max(estimatedSeconds, 0)) : '...'} note="Based on current delay and batch settings" tone="slate" variant="dark" />
+              <MetricTile label="Progress" value={`${percent}%`} note="Current run completion rate" tone="sky" variant="dark" />
             </div>
           ) : null}
         </AdminHero>
