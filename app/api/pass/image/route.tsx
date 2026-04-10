@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // GET /api/pass/image?token=xxx
-// Returns a JPEG image of the visitor pass for sharing via WhatsApp.
+// Returns a PNG image of the visitor pass for sharing via WhatsApp.
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token = searchParams.get('token');
@@ -43,7 +43,6 @@ export async function GET(request: NextRequest) {
 
   const name = attendee.name || 'Participant';
   const terms = event.pass_terms_conditions;
-
   const imageHeight = terms ? 1000 : 860;
 
   const response = new ImageResponse(
@@ -205,7 +204,6 @@ export async function GET(request: NextRequest) {
     }
   );
 
-  // Return as JPEG by converting the PNG response
   const png = await response.arrayBuffer();
 
   return new Response(png, {
