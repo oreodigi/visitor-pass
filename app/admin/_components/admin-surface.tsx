@@ -14,17 +14,17 @@ export function AdminHero({
   children?: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),linear-gradient(135deg,_#0f172a,_#1e1b4b_48%,_#312e81)] shadow-[0_30px_80px_-42px_rgba(15,23,42,0.7)]">
-      <div className="px-5 py-6 sm:px-7 sm:py-8">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <section className="overflow-hidden rounded-[26px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(79,70,229,0.10),_transparent_30%),linear-gradient(135deg,_#ffffff,_#f8fafc_58%,_#eef2ff)] shadow-[0_18px_50px_-38px_rgba(15,23,42,0.45)]">
+      <div className="px-4 py-5 sm:px-6 sm:py-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <p className="text-xs font-bold uppercase tracking-[0.32em] text-sky-100/75">{eyebrow}</p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-[2.35rem]">{title}</h1>
-            <p className="mt-3 max-w-2xl text-base leading-8 text-slate-100/95">{description}</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-indigo-500">{eyebrow}</p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-[2rem]">{title}</h1>
+            <p className="mt-2 max-w-2xl text-[15px] leading-7 text-slate-600">{description}</p>
           </div>
           {actions ? <div className="grid gap-2 sm:flex sm:flex-wrap sm:justify-end">{actions}</div> : null}
         </div>
-        {children ? <div className="mt-6">{children}</div> : null}
+        {children ? <div className="mt-5">{children}</div> : null}
       </div>
     </section>
   );
@@ -54,19 +54,19 @@ export function MetricTile({
 
   if (variant === 'dark') {
     return (
-      <div className="rounded-[24px] border border-white/20 bg-white/[0.08] p-4 shadow-sm ring-1 ring-white/5 backdrop-blur">
-        <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/70">{label}</p>
-        <p className="mt-3 text-3xl font-black tracking-tight text-white">{value}</p>
-        <p className="mt-2 text-sm font-medium leading-6 text-white/78">{note}</p>
+      <div className="rounded-[20px] border border-slate-200 bg-white/80 p-3.5 shadow-sm backdrop-blur">
+        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-500">{label}</p>
+        <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+        <p className="mt-1.5 text-xs font-medium leading-5 text-slate-600">{note}</p>
       </div>
     );
   }
 
   return (
-    <div className={`rounded-[24px] border bg-gradient-to-br p-4 shadow-sm ${toneMap[tone]}`}>
-      <p className="text-[11px] font-black uppercase tracking-[0.28em] text-slate-600">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 text-sm font-medium leading-6 text-slate-600">{note}</p>
+    <div className={`rounded-[20px] border bg-gradient-to-br p-3.5 shadow-sm ${toneMap[tone]}`}>
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-600">{label}</p>
+      <p className="mt-2 text-2xl font-black tracking-tight text-slate-950">{value}</p>
+      <p className="mt-1.5 text-xs font-medium leading-5 text-slate-600">{note}</p>
     </div>
   );
 }
@@ -85,16 +85,16 @@ export function SurfaceCard({
   action?: ReactNode;
 }) {
   return (
-    <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_50px_-36px_rgba(15,23,42,0.45)]">
-      <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
+    <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_14px_40px_-34px_rgba(15,23,42,0.45)]">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div>
-          {eyebrow ? <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-400">{eyebrow}</p> : null}
-          <h2 className="mt-1 text-xl font-bold text-slate-950">{title}</h2>
-          {description ? <p className="mt-1 text-[15px] leading-7 text-slate-600">{description}</p> : null}
+          {eyebrow ? <p className="text-[10px] font-black uppercase tracking-[0.26em] text-slate-400">{eyebrow}</p> : null}
+          <h2 className="mt-1 text-lg font-black text-slate-950">{title}</h2>
+          {description ? <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p> : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      <div className="px-5 py-5 sm:px-6">{children}</div>
+      <div className="px-4 py-4 sm:px-5">{children}</div>
     </section>
   );
 }
@@ -115,7 +115,7 @@ export function InlineStatus({
   };
 
   return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-bold ${toneMap[tone]}`}>
+    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${toneMap[tone]}`}>
       {children}
     </div>
   );
@@ -131,15 +131,15 @@ export function EmptyPanel({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-[28px] border border-dashed border-slate-300 bg-white px-6 py-12 text-center shadow-sm">
+    <div className="rounded-[24px] border border-dashed border-slate-300 bg-white px-5 py-10 text-center shadow-sm">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
         <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" strokeWidth={1.7} stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5A2.25 2.25 0 015.25 5.25h13.5A2.25 2.25 0 0121 7.5v9A2.25 2.25 0 0118.75 18.75H5.25A2.25 2.25 0 013 16.5v-9z" />
           <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 12h9m-4.5-4.5v9" />
         </svg>
       </div>
-      <h3 className="mt-4 text-xl font-bold text-slate-900">{title}</h3>
-      <p className="mx-auto mt-2 max-w-md text-[15px] leading-7 text-slate-600">{description}</p>
+      <h3 className="mt-4 text-lg font-black text-slate-900">{title}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">{description}</p>
       {action ? <div className="mt-5">{action}</div> : null}
     </div>
   );

@@ -47,6 +47,7 @@ export default function SendInvitesPage() {
   const [config, setConfig] = useState(DEFAULTS);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -107,13 +108,44 @@ export default function SendInvitesPage() {
 
   async function handleConnect() {
     setError(null);
-    await fetch('/api/whatsapp', { method: 'POST' });
-    pollWaStatus();
+    setConnecting(true);
+    try {
+      const res = await fetch('/api/whatsapp', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error?.message || 'WhatsApp connection is unavailable on this server');
+      }
+      pollWaStatus();
+    } catch {
+      setError('Could not start WhatsApp connection');
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  async function handleReconnect() {
+    setError(null);
+    setConnecting(true);
+    try {
+      await fetch('/api/whatsapp', { method: 'DELETE' });
+      const res = await fetch('/api/whatsapp', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error?.message || 'WhatsApp connection is unavailable on this server');
+      }
+      pollWaStatus();
+    } catch {
+      setError('Could not restart WhatsApp connection');
+    } finally {
+      setConnecting(false);
+    }
   }
 
   async function handleDisconnect() {
+    setConnecting(true);
     await fetch('/api/whatsapp', { method: 'DELETE' });
     setWaState({ status: 'idle', qrDataUrl: null });
+    setConnecting(false);
   }
 
   async function handleStartSend() {
@@ -198,16 +230,20 @@ export default function SendInvitesPage() {
                   ) : null}
                 </div>
                 <div className="grid gap-2 sm:flex">
-                  {(waState.status === 'idle' || waState.status === 'disconnected') ? (
-                    <button onClick={handleConnect} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800">
-                      Connect WhatsApp
+                  {waState.status === 'idle' || waState.status === 'disconnected' ? (
+                    <button onClick={handleConnect} disabled={connecting} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                      {connecting ? 'Connecting...' : 'Connect WhatsApp'}
                     </button>
-                  ) : null}
-                  {isConnected ? (
-                    <button onClick={handleDisconnect} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50">
+                  ) : (
+                    <button onClick={handleReconnect} disabled={connecting} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                      {connecting ? 'Restarting...' : isConnected ? 'Reconnect WhatsApp' : 'Restart Connection'}
+                    </button>
+                  )}
+                  {waState.status !== 'idle' && (
+                    <button onClick={handleDisconnect} disabled={connecting} className="rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-50">
                       Disconnect
                     </button>
-                  ) : null}
+                  )}
                 </div>
               </div>
             </SurfaceCard>

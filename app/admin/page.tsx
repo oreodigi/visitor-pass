@@ -79,10 +79,10 @@ function MetricTile({
   icon: React.ReactNode;
 }) {
   const inner = (
-    <div className={`group relative overflow-hidden rounded-[28px] border border-white/60 p-4 shadow-sm transition-transform duration-150 active:scale-[.985] sm:p-5 ${tone}`}>
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/30 to-transparent" />
+    <div className={`group relative overflow-hidden rounded-[22px] border border-white/70 p-3.5 shadow-sm transition-transform duration-150 active:scale-[.985] ${tone}`}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white/30 to-transparent" />
       <div className="relative flex items-start justify-between gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/60 text-slate-900 shadow-sm backdrop-blur-sm">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/65 text-slate-900 shadow-sm backdrop-blur-sm">
           {icon}
         </div>
         {href && (
@@ -91,10 +91,10 @@ function MetricTile({
           </div>
         )}
       </div>
-      <div className="relative mt-7">
-        <div className="text-3xl font-black leading-none tracking-tight text-slate-950">{value}</div>
-        {sub && <div className="mt-2 text-sm font-medium text-slate-600">{sub}</div>}
-        <div className="mt-4 text-sm font-semibold text-slate-800">{label}</div>
+      <div className="relative mt-4">
+        <div className="text-2xl font-black leading-none tracking-tight text-slate-950">{value}</div>
+        {sub && <div className="mt-1.5 text-xs font-medium leading-5 text-slate-600">{sub}</div>}
+        <div className="mt-3 text-sm font-bold text-slate-800">{label}</div>
       </div>
     </div>
   );
@@ -114,9 +114,9 @@ function SnapshotCard({
   accent: string;
 }) {
   return (
-    <div className="rounded-[26px] border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-sm">
       <div className={`h-1.5 w-16 rounded-full ${accent}`} />
-      <div className="mt-5 text-3xl font-black tracking-tight text-slate-950">{value}</div>
+      <div className="mt-4 text-2xl font-black tracking-tight text-slate-950">{value}</div>
       <div className="mt-1 text-sm font-semibold text-slate-700">{label}</div>
       <div className="mt-3 text-xs leading-relaxed text-slate-500">{detail}</div>
     </div>
@@ -136,7 +136,7 @@ function FunnelMeter({
 }) {
   const width = pct(value, max);
   return (
-    <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-[22px] border border-slate-200 bg-white p-3.5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-slate-900">{label}</div>
@@ -170,7 +170,7 @@ function ActionTile({
   return (
     <a
       href={href}
-      className={`group flex min-h-[124px] flex-col justify-between rounded-[28px] p-4 text-white shadow-sm transition-transform duration-150 active:scale-[.98] ${tone}`}
+      className={`group flex min-h-[108px] flex-col justify-between rounded-[22px] p-3.5 text-white shadow-sm transition-transform duration-150 active:scale-[.98] ${tone}`}
     >
       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-2xl backdrop-blur-sm">
         {icon}
