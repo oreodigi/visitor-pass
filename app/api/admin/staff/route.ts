@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
     let query = db
       .from('users')
       .select('id, name, email, mobile, role, active, designation, created_at, updated_at', { count: 'exact' })
-      .neq('role', 'admin')
       .range(offset, offset + perPage - 1)
+      .order('role', { ascending: true })
       .order('created_at', { ascending: false });
 
-    if (roleFilter === 'manager' || roleFilter === 'gate_staff') {
+    if (roleFilter === 'admin' || roleFilter === 'manager' || roleFilter === 'gate_staff') {
       query = query.eq('role', roleFilter);
     }
     if (activeFilter === 'true') query = query.eq('active', true);
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
     if (!email) return apiError('Email is required', 400);
     if (!isValidMobile(mobile)) return apiError('Invalid mobile number', 400);
     if (!password || password.length < 6) return apiError('Password must be at least 6 characters', 400);
-    if (role !== 'manager' && role !== 'gate_staff') {
-      return apiError('Role must be manager or gate_staff', 400);
+    if (role !== 'admin' && role !== 'manager' && role !== 'gate_staff') {
+      return apiError('Role must be admin, manager, or gate_staff', 400);
     }
 
     const db = createServerClient();

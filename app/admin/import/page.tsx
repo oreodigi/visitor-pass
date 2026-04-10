@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, ChangeEvent } from 'react';
+import { useState, ChangeEvent } from 'react';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 
 interface ImportResult {
   total_rows: number;
@@ -12,31 +13,20 @@ interface ImportResult {
 }
 
 export default function ImportPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
-  const [eventTitle, setEventTitle] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadEvent() {
-      try {
-        const res = await fetch('/api/events');
-        const d = await res.json();
-        if (d.success && d.data?.[0]) {
-          setEventId(d.data[0].id);
-          setEventTitle(d.data[0].title);
-        }
-      } catch {
-        setError('Failed to load event');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadEvent();
-  }, []);
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setFile(null);
+    setResult(null);
+    setError('');
+  }
+
+  const eventId = selectedEvent?.id ?? null;
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] || null;
@@ -68,41 +58,25 @@ export default function ImportPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
-      </div>
-    );
-  }
-
-  if (!eventId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-          <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-          </svg>
-        </div>
-        <h2 className="text-base font-semibold text-slate-800">No Event Found</h2>
-        <p className="mt-1.5 text-sm text-slate-500">
-          Create an event in{' '}
-          <a href="/admin/event-settings" className="text-brand-600 underline font-medium">Event Settings</a>{' '}
-          first.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 lg:py-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <EventSelectorBar onChange={handleEventChange} />
+
+      {!selectedEvent && (
+        <div className="flex-1 flex flex-col items-center justify-center py-20 text-center px-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
+        </div>
+      )}
+
+      {selectedEvent && (
+      <div className="mx-auto w-full max-w-2xl px-4 py-6 lg:py-8">
 
       {/* Page header */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-slate-900">Upload Contacts</h1>
         <p className="mt-1 text-sm text-slate-500">
           Import mobile numbers into{' '}
-          <span className="font-semibold text-slate-700">{eventTitle}</span>.{' '}
+          <span className="font-semibold text-slate-700">{selectedEvent.title}</span>.{' '}
           Each contact receives a unique invitation link.
         </p>
       </div>
@@ -257,6 +231,8 @@ export default function ImportPage() {
             </button>
           </div>
         </div>
+      )}
+    </div>
       )}
     </div>
   );

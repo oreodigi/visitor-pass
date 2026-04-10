@@ -343,7 +343,7 @@ export default function AdminDashboard() {
           <h2 className="text-base font-bold text-slate-900 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
-              { label: 'Event Settings',     href: '/admin/event-settings', bg: 'bg-brand-600 text-white hover:bg-brand-700',         icon: '🗓️' },
+              { label: 'Events',             href: '/admin/event-settings', bg: 'bg-brand-600 text-white hover:bg-brand-700',         icon: '🗓️' },
               { label: 'Upload Contacts',    href: '/admin/import',         bg: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-soft', icon: '📤' },
               { label: 'Staff Management',  href: '/admin/staff',          bg: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-soft', icon: '👥' },
               { label: 'Contacts & Invites', href: '/admin/contacts',       bg: 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-soft', icon: '📨' },

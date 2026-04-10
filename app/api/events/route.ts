@@ -9,6 +9,8 @@ import {
   listEvents,
   getEventById,
   uploadLogo,
+  uploadPartnerLogo,
+  deleteEvent,
 } from '@/services/event.service';
 
 // GET /api/events — list all events
@@ -43,14 +45,21 @@ export async function POST(request: NextRequest) {
 
     const contentType = request.headers.get('content-type') || '';
 
-    // Handle logo upload (multipart form)
+    // Handle logo / partner logo upload (multipart form)
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const eventId = formData.get('event_id') as string;
+      const uploadType = (formData.get('upload_type') as string) || 'logo';
       const file = formData.get('logo') as File | null;
 
       if (!eventId) return apiError('Event ID is required', 400);
-      if (!file) return apiError('Logo file is required', 400);
+      if (!file) return apiError('File is required', 400);
+
+      if (uploadType === 'partner_logo') {
+        const result = await uploadPartnerLogo(eventId, file);
+        if (result.error) return apiError(result.error, 400);
+        return apiSuccess({ logo_url: result.url });
+      }
 
       const result = await uploadLogo(eventId, file);
       if (result.error) return apiError(result.error, 400);
@@ -65,6 +74,25 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     console.error('POST /api/events error:', err);
+    return apiError('Internal server error', 500);
+  }
+}
+
+// DELETE /api/events?id=xxx — delete event and all associated data
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireRole('admin');
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    if (!id) return apiError('Event ID is required', 400);
+
+    const result = await deleteEvent(id);
+    if (result.error) return apiError(result.error, 400);
+    return apiSuccess({ deleted: true });
+  } catch (err) {
+    if (err instanceof AuthError) return apiError(err.message, err.status);
+    console.error('DELETE /api/events error:', err);
     return apiError('Internal server error', 500);
   }
 }

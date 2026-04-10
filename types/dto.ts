@@ -46,6 +46,9 @@ export interface CreateEventPayload {
   support_contact_number?: string;
   footer_note?: string;
   logo_url?: string;
+  max_visitors?: number | null;
+  vip_seats?: number;
+  partners?: Array<{ name: string; logo_url: string | null }>;
 }
 
 export interface UpdateEventPayload extends Partial<CreateEventPayload> {
@@ -67,6 +70,9 @@ export interface EventResponse {
   footer_note: string | null;
   logo_url: string | null;
   status: EventStatus;
+  max_visitors: number | null;
+  vip_seats: number;
+  partners: Array<{ name: string; logo_url: string | null }>;
   attendee_count?: number;
   checked_in_count?: number;
   created_at: string;

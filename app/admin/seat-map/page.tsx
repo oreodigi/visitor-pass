@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -332,45 +333,42 @@ function LegendItem({ cls, label }: { cls: string; label: string }) {
 // ── Main Page ─────────────────────────────────────────────
 
 export default function SeatMapPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
+  const eventId = selectedEvent?.id ?? null;
   const [rows, setRows] = useState<SeatRow[]>([]);
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [occupied, setOccupied] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      const evRes = await fetch('/api/events');
-      const evData = await evRes.json();
-      if (!evData.success || !evData.data?.[0]?.id) {
-        setLoading(false);
-        return;
-      }
-      const ev = evData.data[0];
-      setEventId(ev.id);
-
-      const smRes = await fetch(`/api/events/seat-map?event_id=${ev.id}`);
+  const loadSeatMap = useCallback(async (id: string) => {
+    setLoading(true);
+    setRows([]);
+    setBlocked(new Set());
+    setOccupied(new Set());
+    try {
+      const smRes = await fetch(`/api/events/seat-map?event_id=${id}`);
       const smData = await smRes.json();
       if (smData.success) {
         const config = smData.data.seat_map_config;
         if (config?.rows?.length) {
-          setRows(
-            config.rows.map((r: Omit<SeatRow, 'id'>) => ({
-              ...r,
-              start_from: r.start_from ?? 1,
-              id: uid(),
-            }))
-          );
+          setRows(config.rows.map((r: Omit<SeatRow, 'id'>) => ({ ...r, start_from: r.start_from ?? 1, id: uid() })));
           setBlocked(new Set(config.blocked || []));
         }
         setOccupied(new Set((smData.data.occupied || []) as string[]));
       }
+    } finally {
       setLoading(false);
     }
-    load();
   }, []);
+
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setMessage(null);
+    if (ev) loadSeatMap(ev.id);
+    else { setRows([]); setBlocked(new Set()); setOccupied(new Set()); }
+  }
 
   // ── Stats ──────────────────────────────────────────────
   const totalSeats = rows.reduce((s, r) => s + r.count, 0);
@@ -524,34 +522,18 @@ export default function SeatMapPage() {
 
   // ── Render ─────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-20">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
-      </div>
-    );
-  }
-
-  if (!eventId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-          <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-          </svg>
-        </div>
-        <h2 className="text-base font-semibold text-slate-800">No Event Found</h2>
-        <p className="mt-1.5 text-sm text-slate-500">
-          Create an event in{' '}
-          <a href="/admin/event-settings" className="text-brand-600 underline font-medium">Event Settings</a>{' '}
-          first.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 lg:py-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <EventSelectorBar onChange={handleEventChange} />
+
+      {loading && (
+        <div className="flex justify-center py-20">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
+        </div>
+      )}
+
+      {!loading && (
+    <div className="mx-auto w-full max-w-7xl px-4 py-6 lg:py-8">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -714,6 +696,8 @@ export default function SeatMapPage() {
           </div>
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 }

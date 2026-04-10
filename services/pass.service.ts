@@ -333,6 +333,7 @@ export interface PublicPassData {
     footer_note: string | null;
     logo_url: string | null;
     pass_terms_conditions: string | null;
+    partners: Array<{ name: string; logo_url: string | null }> | null;
   };
   pass_url: string;
 }
@@ -353,7 +354,7 @@ export async function getPublicPassByToken(
 
   const { data: event, error: eventErr } = await db
     .from('events')
-    .select('title, event_date, start_time, end_time, venue_name, venue_address, venue_contact_number, organizer_contact_number, support_contact_number, footer_note, logo_url, pass_terms_conditions')
+    .select('title, event_date, start_time, end_time, venue_name, venue_address, venue_contact_number, organizer_contact_number, support_contact_number, footer_note, logo_url, pass_terms_conditions, partners')
     .eq('id', attendee.event_id)
     .single();
 

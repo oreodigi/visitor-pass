@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from 'react';
 
 // ─── Types ────────────────────────────────────────────────
 
-interface StaffUser {
+type UserRole = 'admin' | 'manager' | 'gate_staff';
+
+interface TeamUser {
   id: string;
   name: string;
   email: string | null;
   mobile: string;
-  role: 'manager' | 'gate_staff';
+  role: UserRole;
   active: boolean;
   designation: string | null;
   assignment_count: number;
@@ -32,17 +34,17 @@ interface Assignment {
 
 type FormMode = 'add' | 'edit';
 
-interface StaffForm {
+interface UserForm {
   name: string;
   email: string;
   mobile: string;
   password: string;
-  role: 'manager' | 'gate_staff';
+  role: UserRole;
   designation: string;
   active: boolean;
 }
 
-const EMPTY_FORM: StaffForm = {
+const EMPTY_FORM: UserForm = {
   name: '', email: '', mobile: '', password: '',
   role: 'gate_staff', designation: '', active: true,
 };
@@ -50,7 +52,8 @@ const EMPTY_FORM: StaffForm = {
 // ─── Badges ───────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
-  if (role === 'manager') return <span className="badge badge-amber">Manager</span>;
+  if (role === 'admin')      return <span className="badge badge-purple">Admin</span>;
+  if (role === 'manager')    return <span className="badge badge-amber">Manager</span>;
   return <span className="badge badge-blue">Event Staff</span>;
 }
 
@@ -66,32 +69,126 @@ function StatusBadge({ active }: { active: boolean }) {
   );
 }
 
+// ─── Avatar initials ──────────────────────────────────────
+
+function Avatar({ name, role }: { name: string; role: string }) {
+  const gradients: Record<string, string> = {
+    admin:      'from-violet-500 to-purple-600',
+    manager:    'from-amber-500 to-orange-500',
+    gate_staff: 'from-brand-500 to-violet-600',
+  };
+  return (
+    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${gradients[role] ?? gradients.gate_staff} text-xs font-bold text-white shadow-soft`}>
+      {(name || '?').charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+// ─── Delete confirmation modal ────────────────────────────
+
+function DeleteModal({
+  user, onCancel, onConfirm, deleting,
+}: {
+  user: TeamUser; onCancel: () => void; onConfirm: () => void; deleting: boolean;
+}) {
+  const [txt, setTxt] = useState('');
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="bg-red-600 px-5 py-4 flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 shrink-0">
+            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Delete &quot;{user.name}&quot;</h3>
+            <p className="text-xs text-red-200">This action is permanent and cannot be undone</p>
+          </div>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Deleting this account will permanently remove the user and all their event assignments.
+            {user.role === 'admin' && (
+              <span className="block mt-1 font-semibold text-amber-700">Warning: this is an admin account.</span>
+            )}
+          </p>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Type <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">DELETE</span> to confirm
+            </label>
+            <input
+              type="text" value={txt} onChange={e => setTxt(e.target.value)} autoFocus
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-mono text-slate-900 placeholder:text-slate-400 focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-400/20"
+              placeholder="DELETE"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2.5 px-5 pb-5">
+          <button onClick={onCancel} disabled={deleting}
+            className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={txt !== 'DELETE' || deleting}
+            className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
+            {deleting
+              ? <><span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />Deleting…</>
+              : 'Delete User'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Role description ─────────────────────────────────────
+
+const ROLE_DESC: Record<UserRole, string> = {
+  admin:      'Full access to all admin pages, settings, events, staff, and every API route.',
+  manager:    'Can monitor event operations, view attendees and check-in stats for assigned events.',
+  gate_staff: 'Can scan passes and manage gate check-in for assigned events.',
+};
+
 // ─── Page ─────────────────────────────────────────────────
 
-export default function StaffPage() {
-  const [staff, setStaff] = useState<StaffUser[]>([]);
+export default function TeamPage() {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [staff, setStaff] = useState<TeamUser[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [roleFilter, setRoleFilter] = useState<'all' | 'manager' | 'gate_staff'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all');
   const [activeFilter, setActiveFilter] = useState<'all' | 'true' | 'false'>('all');
 
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMode, setPanelMode] = useState<FormMode>('add');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<StaffForm>(EMPTY_FORM);
+  const [form, setForm] = useState<UserForm>(EMPTY_FORM);
   const [formError, setFormError] = useState('');
   const [formSaving, setFormSaving] = useState(false);
 
+  const [deleteTarget, setDeleteTarget] = useState<TeamUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
   const [assignPanelOpen, setAssignPanelOpen] = useState(false);
-  const [assignStaff, setAssignStaff] = useState<StaffUser | null>(null);
+  const [assignUser, setAssignUser] = useState<TeamUser | null>(null);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [assignEventId, setAssignEventId] = useState('');
   const [assignRole, setAssignRole] = useState<'manager' | 'gate_staff'>('gate_staff');
   const [assignSaving, setAssignSaving] = useState(false);
   const [assignError, setAssignError] = useState('');
+
+  const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors';
+
+  // Get own ID so we can protect self-actions
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      if (d.success) setCurrentUserId(d.data.user.id);
+    });
+  }, []);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
@@ -112,12 +209,13 @@ export default function StaffPage() {
   useEffect(() => { setPage(1); }, [roleFilter, activeFilter]);
 
   function openAdd() {
-    setForm(EMPTY_FORM); setFormError(''); setPanelMode('add'); setEditingId(null); setPanelOpen(true);
+    setForm(EMPTY_FORM); setFormError('');
+    setPanelMode('add'); setEditingId(null); setPanelOpen(true);
   }
 
-  function openEdit(s: StaffUser) {
-    setForm({ name: s.name, email: s.email || '', mobile: s.mobile, password: '', role: s.role, designation: s.designation || '', active: s.active });
-    setFormError(''); setPanelMode('edit'); setEditingId(s.id); setPanelOpen(true);
+  function openEdit(u: TeamUser) {
+    setForm({ name: u.name, email: u.email || '', mobile: u.mobile, password: '', role: u.role, designation: u.designation || '', active: u.active });
+    setFormError(''); setPanelMode('edit'); setEditingId(u.id); setPanelOpen(true);
   }
 
   async function handleFormSubmit(e: React.FormEvent) {
@@ -127,11 +225,19 @@ export default function StaffPage() {
     try {
       let res: Response;
       if (panelMode === 'add') {
-        res = await fetch('/api/admin/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
+        res = await fetch('/api/admin/staff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
       } else {
         const payload: Record<string, unknown> = { ...form };
         if (!payload.password) delete payload.password;
-        res = await fetch(`/api/admin/staff/${editingId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        res = await fetch(`/api/admin/staff/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
       }
       const data = await res.json();
       if (!data.success) { setFormError(data.error?.message || 'Something went wrong'); setFormSaving(false); return; }
@@ -143,30 +249,65 @@ export default function StaffPage() {
     setFormSaving(false);
   }
 
-  async function toggleActive(s: StaffUser) {
-    await fetch(`/api/admin/staff/${s.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: !s.active }) });
+  async function toggleActive(u: TeamUser) {
+    const res = await fetch(`/api/admin/staff/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !u.active }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      alert(data.error?.message || 'Could not update status');
+    }
     fetchStaff();
   }
 
-  async function openAssignments(s: StaffUser) {
-    setAssignStaff(s); setAssignError(''); setAssignEventId('');
-    setAssignRole(s.role === 'manager' ? 'manager' : 'gate_staff');
-    const [asgRes, evtRes] = await Promise.all([fetch(`/api/admin/staff/${s.id}`), fetch('/api/events')]);
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError('');
+    const res = await fetch(`/api/admin/staff/${deleteTarget.id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!data.success) {
+      setDeleteError(data.error?.message || 'Delete failed');
+      setDeleting(false);
+      return;
+    }
+    setDeleteTarget(null);
+    setDeleting(false);
+    fetchStaff();
+  }
+
+  async function openAssignments(u: TeamUser) {
+    setAssignUser(u); setAssignError(''); setAssignEventId('');
+    setAssignRole(u.role === 'manager' ? 'manager' : 'gate_staff');
+    const [asgRes, evtRes] = await Promise.all([
+      fetch(`/api/admin/staff/${u.id}`),
+      fetch('/api/events'),
+    ]);
     const asgData = await asgRes.json();
     const evtData = await evtRes.json();
     if (asgData.success) setAssignments(asgData.data.assignments);
-    if (evtData.success) setEvents(evtData.data.event ? [evtData.data.event] : []);
+    if (evtData.success) {
+      const evts = evtData.data;
+      setEvents(Array.isArray(evts) ? evts : evts.event ? [evts.event] : []);
+    }
     setAssignPanelOpen(true);
   }
 
   async function handleAddAssignment() {
-    if (!assignEventId || !assignStaff) return;
+    if (!assignEventId || !assignUser) return;
     setAssignSaving(true); setAssignError('');
-    const res = await fetch('/api/admin/assignments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: assignStaff.id, event_id: assignEventId, assigned_role: assignRole }) });
+    const res = await fetch('/api/admin/assignments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: assignUser.id, event_id: assignEventId, assigned_role: assignRole }),
+    });
     const data = await res.json();
-    if (!data.success) { setAssignError(data.error?.message || 'Failed to assign'); }
-    else {
-      const asgRes = await fetch(`/api/admin/staff/${assignStaff.id}`);
+    if (!data.success) {
+      setAssignError(data.error?.message || 'Failed to assign');
+    } else {
+      const asgRes = await fetch(`/api/admin/staff/${assignUser.id}`);
       const asgData = await asgRes.json();
       if (asgData.success) setAssignments(asgData.data.assignments);
       fetchStaff(); setAssignEventId('');
@@ -176,8 +317,8 @@ export default function StaffPage() {
 
   async function handleRemoveAssignment(assignmentId: string) {
     await fetch(`/api/admin/assignments/${assignmentId}`, { method: 'DELETE' });
-    if (assignStaff) {
-      const asgRes = await fetch(`/api/admin/staff/${assignStaff.id}`);
+    if (assignUser) {
+      const asgRes = await fetch(`/api/admin/staff/${assignUser.id}`);
       const asgData = await asgRes.json();
       if (asgData.success) setAssignments(asgData.data.assignments);
     }
@@ -185,27 +326,45 @@ export default function StaffPage() {
   }
 
   const ROLE_TABS = [
-    { value: 'all', label: 'All Staff' },
-    { value: 'manager', label: 'Managers' },
+    { value: 'all',        label: 'All' },
+    { value: 'admin',      label: 'Admins' },
+    { value: 'manager',    label: 'Managers' },
     { value: 'gate_staff', label: 'Event Staff' },
   ] as const;
-
-  const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors';
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
 
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <DeleteModal
+          user={deleteTarget}
+          onCancel={() => { setDeleteTarget(null); setDeleteError(''); }}
+          onConfirm={confirmDelete}
+          deleting={deleting}
+        />
+      )}
+      {deleteError && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-red-600 px-4 py-3 text-sm text-white shadow-lg flex items-center gap-2">
+          <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+          {deleteError}
+          <button onClick={() => setDeleteError('')} className="ml-2 opacity-70 hover:opacity-100">
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Staff Management</h1>
-          <p className="text-sm text-slate-500 mt-0.5">{total} team member{total !== 1 ? 's' : ''}</p>
+          <h1 className="text-xl font-bold text-slate-900">Team Management</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{total} user{total !== 1 ? 's' : ''} across all roles</p>
         </div>
         <button onClick={openAdd} className="btn-primary inline-flex items-center gap-2">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Add Staff
+          Add User
         </button>
       </div>
 
@@ -248,8 +407,8 @@ export default function StaffPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
               </svg>
             </div>
-            <p className="text-sm text-slate-500">No staff members found</p>
-            <button onClick={openAdd} className="text-sm font-semibold text-brand-600 hover:underline">Add your first staff member</button>
+            <p className="text-sm text-slate-500">No users found</p>
+            <button onClick={openAdd} className="text-sm font-semibold text-brand-600 hover:underline">Add your first user</button>
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -264,79 +423,109 @@ export default function StaffPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {staff.map((s) => (
-                <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand-500 to-violet-600 text-xs font-bold text-white shadow-soft">
-                        {(s.name || '?').charAt(0).toUpperCase()}
+              {staff.map((u) => {
+                const isSelf = u.id === currentUserId;
+                return (
+                  <tr key={u.id} className={`hover:bg-slate-50 transition-colors ${isSelf ? 'bg-brand-50/30' : ''}`}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <Avatar name={u.name} role={u.role} />
+                        <div>
+                          <div className="font-semibold text-slate-900">
+                            {u.name}
+                            {isSelf && <span className="ml-1.5 text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">You</span>}
+                          </div>
+                          {u.designation && <div className="text-xs text-slate-400">{u.designation}</div>}
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-slate-900">{s.name}</div>
-                        {s.designation && <div className="text-xs text-slate-400">{s.designation}</div>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 hidden md:table-cell">
-                    <div className="text-slate-700 text-sm">{s.email}</div>
-                    <div className="text-xs text-slate-400 font-mono">{s.mobile}</div>
-                  </td>
-                  <td className="px-4 py-3"><RoleBadge role={s.role} /></td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
-                    <button
-                      onClick={() => openAssignments(s)}
-                      className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600 transition-colors"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-                      </svg>
-                      {s.assignment_count} event{s.assignment_count !== 1 ? 's' : ''}
-                    </button>
-                  </td>
-                  <td className="px-4 py-3"><StatusBadge active={s.active} /></td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        onClick={() => openEdit(s)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                        title="Edit"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => openAssignments(s)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                        title="Manage assignments"
-                      >
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => toggleActive(s)}
-                        className={`rounded-lg p-1.5 transition-colors ${
-                          s.active
-                            ? 'text-slate-400 hover:bg-red-50 hover:text-red-600'
-                            : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'
-                        }`}
-                        title={s.active ? 'Deactivate' : 'Activate'}
-                      >
-                        {s.active ? (
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <div className="text-slate-700 text-sm">{u.email}</div>
+                      <div className="text-xs text-slate-400 font-mono">{u.mobile}</div>
+                    </td>
+                    <td className="px-4 py-3"><RoleBadge role={u.role} /></td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      {u.role === 'admin' ? (
+                        <span className="text-xs text-slate-400 italic">All events</span>
+                      ) : (
+                        <button
+                          onClick={() => openAssignments(u)}
+                          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-600 transition-colors"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
                           </svg>
-                        ) : (
+                          {u.assignment_count} event{u.assignment_count !== 1 ? 's' : ''}
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-4 py-3"><StatusBadge active={u.active} /></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Edit */}
+                        <button
+                          onClick={() => openEdit(u)}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                          title="Edit"
+                        >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
                           </svg>
+                        </button>
+
+                        {/* Assignments (non-admin only) */}
+                        {u.role !== 'admin' && (
+                          <button
+                            onClick={() => openAssignments(u)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                            title="Manage assignments"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+                            </svg>
+                          </button>
                         )}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+
+                        {/* Toggle active (not self) */}
+                        {!isSelf && (
+                          <button
+                            onClick={() => toggleActive(u)}
+                            className={`rounded-lg p-1.5 transition-colors ${
+                              u.active
+                                ? 'text-slate-400 hover:bg-amber-50 hover:text-amber-600'
+                                : 'text-slate-400 hover:bg-emerald-50 hover:text-emerald-600'
+                            }`}
+                            title={u.active ? 'Deactivate' : 'Activate'}
+                          >
+                            {u.active ? (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                              </svg>
+                            ) : (
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+
+                        {/* Delete (not self) */}
+                        {!isSelf && (
+                          <button
+                            onClick={() => setDeleteTarget(u)}
+                            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                            title="Delete user"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -347,18 +536,12 @@ export default function StaffPage() {
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-slate-500">Page {page} of {totalPages}</p>
           <div className="flex gap-2">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors">
               Previous
             </button>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors">
               Next
             </button>
           </div>
@@ -371,7 +554,7 @@ export default function StaffPage() {
           <div className="relative h-full w-full max-w-md bg-white shadow-panel flex flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <h2 className="text-base font-bold text-slate-900">
-                {panelMode === 'add' ? 'Add Staff Member' : 'Edit Staff Member'}
+                {panelMode === 'add' ? 'Add New User' : 'Edit User'}
               </h2>
               <button onClick={() => setPanelOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -383,40 +566,58 @@ export default function StaffPage() {
             <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col p-6 gap-4">
               <div>
                 <label className="input-label">Full Name *</label>
-                <input type="text" required value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="e.g. Pradeep Sharma" />
+                <input type="text" required value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  className={inputCls} placeholder="e.g. Pradeep Sharma" />
               </div>
               <div>
                 <label className="input-label">Email *</label>
-                <input type="email" required value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className={inputCls} placeholder="staff@example.com" />
+                <input type="email" required value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  className={inputCls} placeholder="user@example.com" />
               </div>
               <div>
                 <label className="input-label">Mobile *</label>
-                <input type="tel" required value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} className={inputCls} placeholder="9876543210" />
+                <input type="tel" required value={form.mobile}
+                  onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
+                  className={inputCls} placeholder="9876543210" />
               </div>
               <div>
                 <label className="input-label">
                   Password {panelMode === 'edit' ? '(leave blank to keep unchanged)' : '*'}
                 </label>
-                <input type="password" required={panelMode === 'add'} value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={inputCls} placeholder="Min. 6 characters" />
-              </div>
-              <div>
-                <label className="input-label">Role *</label>
-                <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as 'manager' | 'gate_staff' }))} className={inputCls}>
-                  <option value="gate_staff">Event Staff</option>
-                  <option value="manager">Manager</option>
-                </select>
-                <p className="mt-1 text-xs text-slate-400">
-                  {form.role === 'manager'
-                    ? 'Can monitor event operations, view attendees and check-in stats.'
-                    : 'Can scan passes and manage gate check-in for assigned events.'}
-                </p>
-              </div>
-              <div>
-                <label className="input-label">Designation</label>
-                <input type="text" value={form.designation} onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))} className={inputCls} placeholder="e.g. Gate Supervisor" />
+                <input type="password" required={panelMode === 'add'} value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className={inputCls} placeholder="Min. 6 characters" />
               </div>
 
-              {panelMode === 'edit' && (
+              {/* Role — disable changing own role */}
+              <div>
+                <label className="input-label">Role *</label>
+                <select
+                  value={form.role}
+                  onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as UserRole }))}
+                  disabled={panelMode === 'edit' && editingId === currentUserId}
+                  className={inputCls}
+                >
+                  <option value="gate_staff">Event Staff</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Administrator</option>
+                </select>
+                <p className="mt-1 text-xs text-slate-400">{ROLE_DESC[form.role]}</p>
+                {panelMode === 'edit' && editingId === currentUserId && (
+                  <p className="mt-1 text-xs text-amber-600">You cannot change your own role.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="input-label">Designation / Title</label>
+                <input type="text" value={form.designation}
+                  onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))}
+                  className={inputCls} placeholder="e.g. Gate Supervisor, Event Coordinator" />
+              </div>
+
+              {panelMode === 'edit' && editingId !== currentUserId && (
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
@@ -434,11 +635,12 @@ export default function StaffPage() {
               )}
 
               <div className="flex gap-3 mt-auto pt-2">
-                <button type="button" onClick={() => setPanelOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+                <button type="button" onClick={() => setPanelOpen(false)}
+                  className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
                   Cancel
                 </button>
                 <button type="submit" disabled={formSaving} className="flex-1 btn-primary py-2.5 text-sm">
-                  {formSaving ? 'Saving…' : panelMode === 'add' ? 'Add Staff' : 'Save Changes'}
+                  {formSaving ? 'Saving…' : panelMode === 'add' ? 'Add User' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -447,13 +649,13 @@ export default function StaffPage() {
       )}
 
       {/* Assignments Panel */}
-      {assignPanelOpen && assignStaff && (
+      {assignPanelOpen && assignUser && (
         <div className="fixed inset-0 z-50 flex items-start justify-end bg-black/50 backdrop-blur-sm">
           <div className="relative h-full w-full max-w-md bg-white shadow-panel flex flex-col overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900">Event Assignments</h2>
-                <p className="text-xs text-slate-500 mt-0.5">{assignStaff.name}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{assignUser.name}</p>
               </div>
               <button onClick={() => setAssignPanelOpen(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

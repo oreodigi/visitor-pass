@@ -4,6 +4,7 @@ interface Props {
   data: PublicPassData;
   qrDataUrl: string;
   imageHeight: number;
+  partners?: Array<{ name: string; logo_url: string | null }> | null;
 }
 
 function fmtDate(d: string) {
@@ -22,8 +23,9 @@ function fmtTime(s: string, e: string) {
   return `${fmt(s)} – ${fmt(e)}`;
 }
 
-export function PassImageTemplate({ data, qrDataUrl, imageHeight }: Props) {
+export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Props) {
   const { event, attendee } = data;
+  const resolvedPartners = partners ?? event.partners ?? [];
   const name = attendee.name || 'Participant';
   const terms = event.pass_terms_conditions;
 
@@ -152,6 +154,27 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight }: Props) {
         {event.footer_note && (
           <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: '#fafaf9', padding: '10px 28px' }}>
             <div style={{ fontSize: '10px', color: '#a8a29e', textAlign: 'center' }}>{event.footer_note}</div>
+          </div>
+        )}
+
+        {resolvedPartners.length > 0 && (
+          <div style={{ borderTop: '1px solid #e7e5e4', backgroundColor: '#fafaf9', padding: '10px 28px' }}>
+            <div style={{ fontSize: '8px', fontWeight: 700, color: '#a8a29e', letterSpacing: '0.08em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '8px' }}>
+              Partners &amp; Sponsors
+            </div>
+            {/* Single row, equal-width columns */}
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resolvedPartners.length}, 1fr)`, gap: '8px', alignItems: 'center' }}>
+              {resolvedPartners.map((p, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  {p.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.logo_url} alt={p.name} style={{ height: '28px', width: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#57534e', textAlign: 'center', lineHeight: 1.2 }}>{p.name}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

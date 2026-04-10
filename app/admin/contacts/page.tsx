@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { buildInviteWhatsAppLink, type EventContext } from '@/lib/whatsapp';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 
 interface Contact {
   id: string;
@@ -33,8 +34,9 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
 };
 
 export default function ContactsPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [eventCtx, setEventCtx] = useState<EventContext | undefined>(undefined);
+  const eventId = selectedEvent?.id ?? null;
   const [data, setData] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -91,20 +93,20 @@ export default function ContactsPage() {
     });
   }
 
-  useEffect(() => {
-    async function loadEventId() {
-      const res = await fetch('/api/events');
-      const d = await res.json();
-      if (d.success && d.data?.[0]?.id) {
-        const ev = d.data[0];
-        setEventId(ev.id);
-        setEventCtx({ title: ev.title, event_date: ev.event_date, venue_name: ev.venue_name });
-      } else {
-        setLoading(false);
-      }
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setData(null);
+    setPage(1);
+    setSearch('');
+    setStatusFilter('all');
+    setSelectedIds(new Set());
+    if (ev) {
+      setEventCtx({ title: ev.title, event_date: ev.event_date, venue_name: ev.venue_name });
+    } else {
+      setEventCtx(undefined);
+      setLoading(false);
     }
-    loadEventId();
-  }, []);
+  }
 
   const fetchContacts = useCallback(async () => {
     if (!eventId) return;
@@ -245,26 +247,10 @@ export default function ContactsPage() {
     }
   }
 
-  if (!eventId && !loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-          <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-          </svg>
-        </div>
-        <h2 className="text-base font-semibold text-slate-800">No Event Found</h2>
-        <p className="mt-1.5 text-sm text-slate-500">
-          Create an event in{' '}
-          <a href="/admin/event-settings" className="text-brand-600 underline font-medium">Event Settings</a>{' '}
-          first.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <EventSelectorBar onChange={handleEventChange} />
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 lg:py-8">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
@@ -550,6 +536,7 @@ export default function ContactsPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

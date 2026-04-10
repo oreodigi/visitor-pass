@@ -12,6 +12,7 @@ interface PassCardProps {
     footer_note: string | null;
     logo_url: string | null;
     pass_terms_conditions?: string | null;
+    partners?: Array<{ name: string; logo_url: string | null }> | null;
   };
   attendee: {
     name: string | null;
@@ -188,6 +189,36 @@ export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) 
         {event.footer_note && (
           <div className="border-t border-stone-100 bg-stone-50 px-5 py-3">
             <p className="text-center text-[11px] text-stone-500 leading-relaxed">{event.footer_note}</p>
+          </div>
+        )}
+
+        {/* ── Partners & Sponsors ─────────────────────────── */}
+        {event.partners && event.partners.length > 0 && (
+          <div className="border-t border-stone-200 bg-stone-50 px-5 py-3">
+            <p className="text-center text-[9px] font-bold uppercase tracking-widest text-stone-400 mb-2.5">
+              Partners &amp; Sponsors
+            </p>
+            {/* Single row, equal-width columns */}
+            <div
+              className="grid items-center gap-3"
+              style={{ gridTemplateColumns: `repeat(${event.partners.length}, 1fr)` }}
+            >
+              {event.partners.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  {p.logo_url ? (
+                    <img
+                      src={p.logo_url}
+                      alt={p.name}
+                      title={p.name}
+                      className="h-8 w-full object-contain"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span className="text-[10px] font-semibold text-stone-600 text-center leading-tight">{p.name}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

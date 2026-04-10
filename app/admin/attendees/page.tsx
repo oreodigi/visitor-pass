@@ -2,6 +2,7 @@
 
 import { useState, useEffect, FormEvent, useCallback, useRef } from 'react';
 import { buildPassWhatsAppLink, type EventContext } from '@/lib/whatsapp';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 
 interface Attendee {
   id: string;
@@ -140,8 +141,9 @@ function ActionMenu({
 // ── Main page ─────────────────────────────────────────────
 
 export default function AttendeesPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [eventCtx, setEventCtx] = useState<EventContext | undefined>(undefined);
+  const eventId = selectedEvent?.id ?? null;
   const [data, setData] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -198,23 +200,24 @@ export default function AttendeesPage() {
     setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
-  useEffect(() => {
-    async function loadEvent() {
-      const res = await fetch('/api/events');
-      const d = await res.json();
-      if (d.success && d.data?.[0]?.id) {
-        const ev = d.data[0];
-        setEventId(ev.id);
-        setEventCtx({
-          title: ev.title, event_date: ev.event_date, start_time: ev.start_time,
-          end_time: ev.end_time, venue_name: ev.venue_name,
-          support_contact_number: ev.support_contact_number,
-          pass_message_template: ev.pass_message_template ?? null,
-        });
-      } else { setLoading(false); }
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setData(null);
+    setPage(1);
+    setSearch('');
+    setSelectedIds(new Set());
+    if (ev) {
+      setEventCtx({
+        title: ev.title, event_date: ev.event_date, start_time: ev.start_time,
+        end_time: ev.end_time, venue_name: ev.venue_name,
+        support_contact_number: ev.support_contact_number ?? undefined,
+        pass_message_template: ev.pass_message_template ?? null,
+      });
+    } else {
+      setEventCtx(undefined);
+      setLoading(false);
     }
-    loadEvent();
-  }, []);
+  }
 
   const fetchAttendees = useCallback(async () => {
     if (!eventId) return;
@@ -345,26 +348,10 @@ export default function AttendeesPage() {
 
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors';
 
-  if (!eventId && !loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
-          <svg className="h-7 w-7 text-slate-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-          </svg>
-        </div>
-        <h2 className="text-base font-semibold text-slate-800">No Event Found</h2>
-        <p className="mt-1.5 text-sm text-slate-500">
-          Create an event in{' '}
-          <a href="/admin/event-settings" className="text-brand-600 underline font-medium">Event Settings</a>{' '}
-          first.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <EventSelectorBar onChange={handleEventChange} />
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 lg:py-8">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
@@ -672,6 +659,7 @@ export default function AttendeesPage() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

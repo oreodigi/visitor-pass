@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 import type { BulkSendProgress } from '@/lib/wa-sender';
 
 type WaStatus = 'idle' | 'initializing' | 'qr_ready' | 'authenticated' | 'ready' | 'disconnected';
@@ -43,7 +44,8 @@ function Countdown({ nextSendAt }: { nextSendAt: number }) {
 }
 
 export default function SendInvitesPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
+  const eventId = selectedEvent?.id ?? null;
   const [waState, setWaState] = useState<WaState>({ status: 'idle', qrDataUrl: null });
   const [progress, setProgress] = useState<BulkSendProgress | null>(null);
   const [config, setConfig] = useState(DEFAULTS);
@@ -52,11 +54,10 @@ export default function SendInvitesPage() {
   const [error, setError] = useState<string | null>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    fetch('/api/events').then((r) => r.json()).then((d) => {
-      if (d.success && d.data?.[0]?.id) setEventId(d.data[0].id);
-    });
-  }, []);
+  function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setPendingCount(null);
+  }
 
   useEffect(() => {
     if (!eventId) return;
@@ -146,7 +147,9 @@ export default function SendInvitesPage() {
     : 0;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 lg:py-8 space-y-6">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <EventSelectorBar onChange={handleEventChange} />
+    <div className="mx-auto w-full max-w-2xl px-4 py-6 lg:py-8 space-y-6">
 
       {/* Header */}
       <div>
@@ -396,6 +399,7 @@ export default function SendInvitesPage() {
         <p><strong className="text-slate-700">Stay safe:</strong> Keep delays at 45s+ and batches at 15 or fewer. Sending too fast can trigger WhatsApp restrictions.</p>
         <p><strong className="text-slate-700">Session persists</strong> across page refreshes — you only need to scan the QR once until you disconnect.</p>
       </div>
+    </div>
     </div>
   );
 }

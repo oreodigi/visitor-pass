@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 import { DEFAULT_INVITE_TEMPLATE, DEFAULT_PASS_TEMPLATE, renderTemplate } from '@/lib/whatsapp';
 
 // ── Variable token definitions ─────────────────────────────
@@ -94,9 +95,9 @@ function WaPreview({ text }: { text: string }) {
 // ── Page ──────────────────────────────────────────────────
 
 export default function MessageTemplatesPage() {
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
+  const eventId = selectedEvent?.id ?? null;
   const [tab, setTab] = useState<Tab>('invite');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -108,27 +109,23 @@ export default function MessageTemplatesPage() {
   const [inviteRef, setInviteRef] = useState<HTMLTextAreaElement | null>(null);
   const [passRef, setPassRef] = useState<HTMLTextAreaElement | null>(null);
 
-  // Load event + existing templates
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/events');
-        const data = await res.json();
-        if (data.success && data.data?.length > 0) {
-          const ev = data.data[0];
-          setEventId(ev.id);
-          setInviteTemplate(ev.invite_message_template || '');
-          setPassTemplate(ev.pass_message_template || '');
-          setTermsConditions(ev.pass_terms_conditions || '');
-        }
-      } catch {
-        setMessage({ type: 'error', text: 'Failed to load event data' });
-      } finally {
-        setLoading(false);
+  async function handleEventChange(ev: EventSummary | null) {
+    setSelectedEvent(ev);
+    setMessage(null);
+    if (!ev) { setInviteTemplate(''); setPassTemplate(''); setTermsConditions(''); return; }
+    // Load this event's templates
+    try {
+      const res = await fetch(`/api/events?id=${ev.id}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setInviteTemplate(data.data.invite_message_template || '');
+        setPassTemplate(data.data.pass_message_template || '');
+        setTermsConditions(data.data.pass_terms_conditions || '');
       }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to load templates' });
     }
-    load();
-  }, []);
+  }
 
   async function handleSave() {
     if (!eventId) return;
@@ -187,29 +184,9 @@ export default function MessageTemplatesPage() {
 
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors font-mono resize-none';
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-brand-600" />
-      </div>
-    );
-  }
-
-  if (!eventId) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 text-center px-4">
-        <h2 className="text-base font-semibold text-slate-800">No Event Found</h2>
-        <p className="mt-1.5 text-sm text-slate-500">
-          Create an event in{' '}
-          <a href="/admin/event-settings" className="text-brand-600 underline font-medium">Event Settings</a>{' '}
-          first.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-slate-50">
+      <EventSelectorBar onChange={handleEventChange} />
 
       {/* Header */}
       <div className="shrink-0 border-b border-slate-200 bg-white">
