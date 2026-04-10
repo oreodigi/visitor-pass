@@ -271,6 +271,46 @@ export async function getPendingContacts(
   return { data: (data || []) as Array<{ id: string; mobile: string; invitation_link: string }> };
 }
 
+// ── Bulk Delete Contacts ──────────────────────────────────
+
+export async function deleteContacts(
+  ids: string[]
+): Promise<{ success: boolean; deleted: number; error?: string }> {
+  if (ids.length === 0) return { success: true, deleted: 0 };
+  const db = createServerClient();
+  const { error, count } = await db
+    .from('contacts')
+    .delete({ count: 'exact' })
+    .in('id', ids);
+  if (error) {
+    console.error('deleteContacts error:', error);
+    return { success: false, deleted: 0, error: 'Failed to delete contacts' };
+  }
+  return { success: true, deleted: count ?? ids.length };
+}
+
+// ── Bulk Mark Invited ─────────────────────────────────────
+
+export async function bulkMarkInvited(
+  ids: string[]
+): Promise<{ success: boolean; updated: number; error?: string }> {
+  if (ids.length === 0) return { success: true, updated: 0 };
+  const db = createServerClient();
+  const { error, count } = await db
+    .from('contacts')
+    .update(
+      { status: 'invited', whatsapp_invite_status: 'sent', invited_at: new Date().toISOString() },
+      { count: 'exact' }
+    )
+    .in('id', ids)
+    .in('status', ['uploaded', 'invited']);
+  if (error) {
+    console.error('bulkMarkInvited error:', error);
+    return { success: false, updated: 0, error: 'Failed to update contacts' };
+  }
+  return { success: true, updated: count ?? 0 };
+}
+
 // ── Get Contact by ID ─────────────────────────────────────
 
 export async function getContactById(

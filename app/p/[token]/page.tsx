@@ -3,6 +3,7 @@ import { isValidToken } from '@/lib/token';
 import { getPublicPassByToken } from '@/services/pass.service';
 import { generateQrDataUrl } from '@/lib/qr';
 import PassCard from '@/components/pass/pass-card';
+import PassDownloadButton from '@/components/pass/pass-download-button';
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -40,9 +41,14 @@ export default async function PublicPassPage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-stone-100 px-4 py-6 flex flex-col items-center">
       <PassCard event={event} attendee={attendee} qrDataUrl={qrDataUrl} />
-      <p className="mt-4 text-center text-[11px] text-stone-400">
-        This pass is for personal use only. Do not share.
-      </p>
+
+      {/* Download button */}
+      <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-sm">
+        <PassDownloadButton token={token} passNumber={attendee.pass_number} />
+        <p className="text-center text-[11px] text-stone-400">
+          This pass is for personal use only. Do not share.
+        </p>
+      </div>
     </div>
   );
 }

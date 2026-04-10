@@ -66,6 +66,15 @@ function sanitizeEventData(payload: Partial<CreateEventPayload>) {
   if (payload.footer_note !== undefined)
     cleaned.footer_note = sanitizeString(payload.footer_note);
   if (payload.logo_url !== undefined) cleaned.logo_url = payload.logo_url;
+  // Message templates (stored as-is, no aggressive sanitization — they're admin-only)
+  if ('invite_message_template' in payload)
+    cleaned.invite_message_template = (payload as Record<string, unknown>).invite_message_template ?? null;
+  if ('pass_message_template' in payload)
+    cleaned.pass_message_template = (payload as Record<string, unknown>).pass_message_template ?? null;
+  if ('pass_terms_conditions' in payload)
+    cleaned.pass_terms_conditions = (payload as Record<string, unknown>).pass_terms_conditions ?? null;
+  if ('seat_map_config' in payload)
+    cleaned.seat_map_config = (payload as Record<string, unknown>).seat_map_config ?? null;
 
   return cleaned;
 }

@@ -11,6 +11,7 @@ interface PassCardProps {
     support_contact_number: string | null;
     footer_note: string | null;
     logo_url: string | null;
+    pass_terms_conditions?: string | null;
   };
   attendee: {
     name: string | null;
@@ -49,7 +50,7 @@ export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) 
   const isCheckedIn = !!attendee.checked_in_at;
 
   return (
-    <div className="mx-auto w-full max-w-sm">
+    <div className="mx-auto w-full max-w-sm" id="pass-card-root">
       <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-lg">
 
         {/* ── Header Band ────────────────────────────────── */}
@@ -183,10 +184,22 @@ export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) 
           </div>
         </div>
 
-        {/* ── Footer ─────────────────────────────────────── */}
+        {/* ── Footer Note ────────────────────────────────── */}
         {event.footer_note && (
           <div className="border-t border-stone-100 bg-stone-50 px-5 py-3">
             <p className="text-center text-[11px] text-stone-500 leading-relaxed">{event.footer_note}</p>
+          </div>
+        )}
+
+        {/* ── Terms & Conditions ──────────────────────────── */}
+        {event.pass_terms_conditions && (
+          <div className="border-t border-stone-200 bg-stone-100 px-5 py-4">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+              Terms &amp; Conditions
+            </p>
+            <p className="text-[10px] text-stone-500 leading-relaxed whitespace-pre-line">
+              {event.pass_terms_conditions}
+            </p>
           </div>
         )}
       </div>

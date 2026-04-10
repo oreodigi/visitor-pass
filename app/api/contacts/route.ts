@@ -7,6 +7,8 @@ import {
   listContacts,
   getContactById,
   markInviteSent,
+  deleteContacts,
+  bulkMarkInvited,
 } from '@/services/contact.service';
 
 // GET /api/contacts?event_id=xxx&page=1&status_filter=invited
@@ -57,10 +59,36 @@ export async function PATCH(request: NextRequest) {
       return apiSuccess({ updated: true });
     }
 
+    const { ids } = body;
+    if (action === 'bulk_mark_invited') {
+      if (!Array.isArray(ids) || ids.length === 0) return apiError('ids array is required', 400);
+      const result = await bulkMarkInvited(ids);
+      if (!result.success) return apiError(result.error || 'Failed to update', 400);
+      return apiSuccess({ updated: result.updated });
+    }
+
     return apiError('Unknown action', 400);
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     console.error('PATCH /api/contacts error:', err);
+    return apiError('Internal server error', 500);
+  }
+}
+
+// DELETE /api/contacts — bulk delete
+// Body: { ids: string[] }
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireRole('admin');
+    const body = await request.json();
+    const { ids } = body;
+    if (!Array.isArray(ids) || ids.length === 0) return apiError('ids array is required', 400);
+    const result = await deleteContacts(ids);
+    if (!result.success) return apiError(result.error || 'Failed to delete', 500);
+    return apiSuccess({ deleted: result.deleted });
+  } catch (err) {
+    if (err instanceof AuthError) return apiError(err.message, err.status);
+    console.error('DELETE /api/contacts error:', err);
     return apiError('Internal server error', 500);
   }
 }

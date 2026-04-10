@@ -6,6 +6,11 @@ import {
   formatSeatNumber,
   parsePassNumberSequence,
 } from '@/lib/token';
+import {
+  getNextAvailableSeat,
+  getAvailableSeats,
+  type SeatMapConfig,
+} from '@/lib/seat-map';
 
 // ── Types ─────────────────────────────────────────────────
 
@@ -53,7 +58,7 @@ export async function generatePassForAttendee(
 
   const { data: event, error: eventErr } = await db
     .from('events')
-    .select('id, title, event_date')
+    .select('id, title, event_date, seat_map_config')
     .eq('id', attendee.event_id)
     .single();
 
@@ -78,15 +83,25 @@ export async function generatePassForAttendee(
 
   if (!qrToken) return { error: 'Failed to generate unique QR token after retries' };
 
-  // Generate pass number and seat number (same sequence counter)
+  // Generate pass number
   const prefix = buildPassPrefix(event.event_date, event.title);
   const sequence = await getNextSequence(db, event.id, prefix);
 
   if (sequence === null) return { error: 'Failed to generate unique pass number' };
 
   const passNumber = formatPassNumber(prefix, sequence);
-  const seatNumber = formatSeatNumber(sequence);
   const passUrl = `${APP_URL}/p/${qrToken}`;
+
+  // Determine seat number: use seat map if configured, else sequential fallback
+  let seatNumber: string;
+  const seatMap = event.seat_map_config as SeatMapConfig | null;
+  if (seatMap?.rows?.length) {
+    const mapSeat = await getNextAvailableSeat(db, event.id, seatMap);
+    if (!mapSeat) return { error: 'No seats available on the seat map' };
+    seatNumber = mapSeat;
+  } else {
+    seatNumber = formatSeatNumber(sequence);
+  }
 
   const { error: updateErr } = await db
     .from('attendees')
@@ -131,7 +146,7 @@ export async function bulkGeneratePasses(
 
   const { data: event, error: eventErr } = await db
     .from('events')
-    .select('id, title, event_date')
+    .select('id, title, event_date, seat_map_config')
     .eq('id', eventId)
     .single();
 
@@ -173,6 +188,14 @@ export async function bulkGeneratePasses(
   const currentMax = await getCurrentMaxSequence(db, eventId, prefix);
   let nextSeq = currentMax + 1;
 
+  // Seat assignment: use seat map if configured, else sequential
+  const seatMap = event.seat_map_config as SeatMapConfig | null;
+  let availableMapSeats: string[] = [];
+  if (seatMap?.rows?.length) {
+    availableMapSeats = await getAvailableSeats(db, eventId, seatMap);
+  }
+  let mapSeatIdx = 0;
+
   const updates: Array<{
     attendee_id: string;
     qr_token: string;
@@ -183,6 +206,19 @@ export async function bulkGeneratePasses(
 
   const usedTokens = new Set<string>();
   for (const attendeeId of toGenerate) {
+    // Seat map check before generating token
+    let seatNumber: string;
+    if (seatMap?.rows?.length) {
+      if (mapSeatIdx >= availableMapSeats.length) {
+        result.failed++;
+        result.errors.push({ attendee_id: attendeeId, reason: 'No seats available on the seat map' });
+        continue;
+      }
+      seatNumber = availableMapSeats[mapSeatIdx++];
+    } else {
+      seatNumber = formatSeatNumber(nextSeq);
+    }
+
     let token: string | null = null;
     for (let attempt = 0; attempt < MAX_TOKEN_RETRIES; attempt++) {
       const candidate = generateSecureToken();
@@ -203,7 +239,7 @@ export async function bulkGeneratePasses(
       attendee_id: attendeeId,
       qr_token: token,
       pass_number: formatPassNumber(prefix, nextSeq),
-      seat_number: formatSeatNumber(nextSeq),
+      seat_number: seatNumber,
       pass_url: `${APP_URL}/p/${token}`,
     });
     nextSeq++;
@@ -296,6 +332,7 @@ export interface PublicPassData {
     support_contact_number: string | null;
     footer_note: string | null;
     logo_url: string | null;
+    pass_terms_conditions: string | null;
   };
   pass_url: string;
 }
@@ -316,7 +353,7 @@ export async function getPublicPassByToken(
 
   const { data: event, error: eventErr } = await db
     .from('events')
-    .select('title, event_date, start_time, end_time, venue_name, venue_address, venue_contact_number, organizer_contact_number, support_contact_number, footer_note, logo_url')
+    .select('title, event_date, start_time, end_time, venue_name, venue_address, venue_contact_number, organizer_contact_number, support_contact_number, footer_note, logo_url, pass_terms_conditions')
     .eq('id', attendee.event_id)
     .single();
 

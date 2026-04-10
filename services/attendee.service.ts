@@ -100,6 +100,10 @@ export async function updateAttendee(
       : null;
   }
 
+  if (payload.email !== undefined) {
+    updateData.email = payload.email ? sanitizeString(payload.email).toLowerCase() : null;
+  }
+
   if (payload.mobile !== undefined) {
     const mobile = normalizeMobile(payload.mobile);
     if (!isValidMobile(mobile)) {

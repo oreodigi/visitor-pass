@@ -1,13 +1,17 @@
 // ── WhatsApp message builders + wa.me link helpers ────────
-// Used for both manual (admin clicks link) and automated bulk send.
+// Supports both hardcoded defaults and custom templates stored in the DB.
+// Custom templates use {{variable}} placeholders.
 
 export interface EventContext {
   title?: string;
-  event_date?: string;   // raw e.g. "2026-04-15"
-  start_time?: string;   // raw e.g. "10:00"
-  end_time?: string;     // raw e.g. "17:00"
+  event_date?: string;
+  start_time?: string;
+  end_time?: string;
   venue_name?: string;
   support_contact_number?: string;
+  // Custom templates (loaded from events table)
+  invite_message_template?: string | null;
+  pass_message_template?: string | null;
 }
 
 // ── Formatting helpers ─────────────────────────────────────
@@ -34,32 +38,69 @@ function toInternational(mobile: string): string {
   return `91${mobile}`;
 }
 
-// ── Message templates ──────────────────────────────────────
+// ── Template variable renderer ─────────────────────────────
+// Replaces {{variable}} tokens in a custom template string.
+
+export function renderTemplate(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
+}
+
+// ── Invite message ─────────────────────────────────────────
+
+export const DEFAULT_INVITE_TEMPLATE = [
+  'Hello 👋',
+  '',
+  "You're invited to attend:",
+  '',
+  '*{{event}}*',
+  '',
+  '📅 Date: {{date}}',
+  '📍 Venue: {{venue}}',
+  '',
+  'To confirm your participation, please fill this form:',
+  '{{link}}',
+  '',
+  'Kindly complete it to receive your entry pass.',
+].join('\n');
 
 export function buildInviteMessage(
   inviteLink: string,
   ctx?: EventContext,
 ): string {
-  const title    = ctx?.title      || 'Our Event';
-  const date     = fmtDate(ctx?.event_date);
-  const venue    = ctx?.venue_name || '';
+  const vars: Record<string, string> = {
+    event: ctx?.title      || 'Our Event',
+    date:  fmtDate(ctx?.event_date),
+    venue: ctx?.venue_name || '',
+    link:  inviteLink,
+  };
 
-  return [
-    'Hello 👋',
-    '',
-    "You're invited to attend:",
-    '',
-    `*${title}*`,
-    '',
-    ...(date  ? [`📅 Date: ${date}`]  : []),
-    ...(venue ? [`📍 Venue: ${venue}`] : []),
-    '',
-    'To confirm your participation, please fill this form:',
-    inviteLink,
-    '',
-    'Kindly complete it to receive your entry pass.',
-  ].join('\n');
+  const template = ctx?.invite_message_template?.trim() || DEFAULT_INVITE_TEMPLATE;
+
+  // If template has no date/venue lines and those are empty, clean up
+  return renderTemplate(template, vars);
 }
+
+// ── Pass / Confirmation message ────────────────────────────
+
+export const DEFAULT_PASS_TEMPLATE = [
+  'Hello {{name}} 👋',
+  '',
+  'Your participation is confirmed.',
+  '',
+  '🎫 *Your Event Pass*',
+  '📅 Date: {{date}}',
+  '⏰ Time: {{time}}',
+  '📍 Venue: {{venue}}',
+  '🪑 Seat No: {{seat}}',
+  '',
+  'Please show this QR pass at entry:',
+  '{{link}}',
+  '',
+  'For assistance: {{support}}',
+].join('\n');
 
 export function buildPassMessage(
   name: string,
@@ -67,27 +108,19 @@ export function buildPassMessage(
   seatNumber: string,
   ctx?: EventContext,
 ): string {
-  const displayName = name || 'Participant';
-  const date        = fmtDate(ctx?.event_date);
-  const time        = fmtTime(ctx?.start_time, ctx?.end_time);
-  const venue       = ctx?.venue_name || '';
-  const support     = ctx?.support_contact_number || '';
+  const vars: Record<string, string> = {
+    name:    name || 'Participant',
+    event:   ctx?.title      || 'Our Event',
+    date:    fmtDate(ctx?.event_date),
+    time:    fmtTime(ctx?.start_time, ctx?.end_time),
+    venue:   ctx?.venue_name || '',
+    seat:    seatNumber,
+    link:    passLink,
+    support: ctx?.support_contact_number || '',
+  };
 
-  return [
-    `Hello ${displayName} 👋`,
-    '',
-    'Your participation is confirmed.',
-    '',
-    '🎫 *Your Event Pass*',
-    ...(date  ? [`📅 Date: ${date}`]        : []),
-    ...(time  ? [`⏰ Time: ${time}`]        : []),
-    ...(venue ? [`📍 Venue: ${venue}`]      : []),
-    `🪑 Seat No: ${seatNumber}`,
-    '',
-    'Please show this QR pass at entry:',
-    passLink,
-    ...(support ? ['', `For assistance: ${support}`] : []),
-  ].join('\n');
+  const template = ctx?.pass_message_template?.trim() || DEFAULT_PASS_TEMPLATE;
+  return renderTemplate(template, vars);
 }
 
 // ── WhatsApp Web link builders ─────────────────────────────

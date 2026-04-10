@@ -39,12 +39,17 @@ export async function POST(request: NextRequest) {
     const db = createServerClient();
     const { data: eventRow } = await db
       .from('events')
-      .select('title, event_date, venue_name')
+      .select('title, event_date, venue_name, invite_message_template')
       .eq('id', eventId)
       .maybeSingle();
 
     const ctx: EventContext | undefined = eventRow
-      ? { title: eventRow.title, event_date: eventRow.event_date, venue_name: eventRow.venue_name }
+      ? {
+          title: eventRow.title,
+          event_date: eventRow.event_date,
+          venue_name: eventRow.venue_name,
+          invite_message_template: eventRow.invite_message_template ?? null,
+        }
       : undefined;
 
     startBulkSend(contacts, config, ctx);
