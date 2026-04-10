@@ -145,23 +145,35 @@ export async function POST(request: NextRequest) {
     const session = await requireAuth();
     const form = await request.formData();
     const file = form.get('avatar') as File | null;
-    if (!file) return apiError('No file uploaded', 400);
 
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    if (!allowed.includes(file.type)) return apiError('Only PNG, JPG, WEBP allowed', 400);
+    if (!file || typeof file === 'string') return apiError('No file uploaded', 400);
+    if (file.size === 0) return apiError('File is empty', 400);
     if (file.size > 2 * 1024 * 1024) return apiError('File must be under 2MB', 400);
 
+    const rawExt = (file.name.split('.').pop() || 'png').toLowerCase();
+    const extMap: Record<string, string> = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    };
+    const contentType = extMap[rawExt] || file.type;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(contentType)) {
+      return apiError('Only PNG, JPG, or WEBP images are allowed', 400);
+    }
+
     const db = createServerClient();
-    const ext = file.name.split('.').pop() || 'png';
+    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
     const fileName = `avatars/${session.id}/avatar-${Date.now()}.${ext}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     const { error: uploadErr } = await db.storage
       .from('event-logos')
-      .upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+      .upload(fileName, buffer, { cacheControl: '3600', upsert: true, contentType });
 
     if (uploadErr) {
-      console.error('avatar upload error:', uploadErr);
-      return apiError('Failed to upload avatar', 500);
+      console.error('avatar upload error:', JSON.stringify(uploadErr));
+      return apiError(`Failed to upload avatar: ${uploadErr.message}`, 500);
     }
 
     const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(fileName);
@@ -171,7 +183,10 @@ export async function POST(request: NextRequest) {
       .update({ profile_picture_url: publicUrl, updated_at: new Date().toISOString() })
       .eq('id', session.id);
 
-    if (saveErr) return apiError('Avatar uploaded but failed to save URL', 500);
+    if (saveErr) {
+      console.error('avatar save error:', JSON.stringify(saveErr));
+      return apiError('Avatar uploaded but failed to save URL', 500);
+    }
 
     return apiSuccess({ avatar_url: publicUrl });
   } catch (err) {

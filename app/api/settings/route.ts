@@ -73,23 +73,37 @@ export async function POST(request: NextRequest) {
     await requireRole('admin');
     const form = await request.formData();
     const file = form.get('logo') as File | null;
-    if (!file) return apiError('No file uploaded', 400);
 
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
-    if (!allowed.includes(file.type)) return apiError('Only PNG, JPG, WEBP allowed', 400);
+    if (!file || typeof file === 'string') return apiError('No file uploaded', 400);
+    if (file.size === 0) return apiError('File is empty', 400);
     if (file.size > 2 * 1024 * 1024) return apiError('File must be under 2MB', 400);
 
+    // Resolve extension from name; determine content-type from ext if browser omits it
+    const rawExt = (file.name.split('.').pop() || 'png').toLowerCase();
+    const extMap: Record<string, string> = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp',
+    };
+    const contentType = extMap[rawExt] || file.type;
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedTypes.includes(contentType)) {
+      return apiError('Only PNG, JPG, or WEBP images are allowed', 400);
+    }
+
     const db = createServerClient();
-    const ext = file.name.split('.').pop() || 'png';
+    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
     const fileName = `app-logo/logo-${Date.now()}.${ext}`;
+
+    // Convert File to Buffer for reliable upload
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
     const { error: uploadErr } = await db.storage
       .from('event-logos')
-      .upload(fileName, file, { cacheControl: '3600', upsert: true, contentType: file.type });
+      .upload(fileName, buffer, { cacheControl: '3600', upsert: true, contentType });
 
     if (uploadErr) {
-      console.error('app logo upload error:', uploadErr);
-      return apiError('Failed to upload logo', 500);
+      console.error('app logo upload error:', JSON.stringify(uploadErr));
+      return apiError(`Upload failed: ${uploadErr.message}`, 500);
     }
 
     const { data: { publicUrl } } = db.storage.from('event-logos').getPublicUrl(fileName);
@@ -98,11 +112,15 @@ export async function POST(request: NextRequest) {
       .from('app_settings')
       .upsert({ key: 'app_logo_url', value: publicUrl }, { onConflict: 'key' });
 
-    if (saveErr) return apiError('Logo uploaded but failed to save URL', 500);
+    if (saveErr) {
+      console.error('app logo save error:', JSON.stringify(saveErr));
+      return apiError('Logo uploaded but failed to save URL', 500);
+    }
 
     return apiSuccess({ logo_url: publicUrl });
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
+    console.error('settings POST error:', err);
     return apiError('Internal server error', 500);
   }
 }
