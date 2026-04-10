@@ -1,6 +1,6 @@
 # Visitor Pass — Event Check-in Management System
 
-A full-stack web application for managing event visitor passes, QR-based check-in, invitation flows, WhatsApp notifications, and multi-role staff management.
+A full-stack web application for managing event visitor passes, QR-based check-in, invitation flows, WhatsApp notifications, email notifications, and multi-role staff management.
 
 Built with **Next.js 14 App Router**, **Supabase** (PostgreSQL + Storage), **Tailwind CSS**, and a custom JWT auth system.
 
@@ -18,6 +18,8 @@ Built with **Next.js 14 App Router**, **Supabase** (PostgreSQL + Storage), **Tai
 - [Pages & Portals](#pages--portals)
 - [API Reference](#api-reference)
 - [Auth System](#auth-system)
+- [Forgot Password Flow](#forgot-password-flow)
+- [Email / SMTP System](#email--smtp-system)
 - [CSV Import Format](#csv-import-format)
 - [Pass Generation](#pass-generation)
 - [Seat Map](#seat-map)
@@ -85,6 +87,7 @@ Built with **Next.js 14 App Router**, **Supabase** (PostgreSQL + Storage), **Tai
 - Enable / disable accounts (soft disable)
 - Hard delete accounts with confirmation modal (type "DELETE" to confirm)
 - Edit name, email, mobile, designation, password
+- **Welcome email** automatically sent to new staff with their login credentials
 - Self-protection guards: cannot delete, demote, or deactivate your own account or the last active admin
 - "You" badge shown on your own row
 
@@ -99,9 +102,22 @@ Built with **Next.js 14 App Router**, **Supabase** (PostgreSQL + Storage), **Tai
 - Password change requires current password verification
 - JWT session cookie is automatically re-issued when name or email changes
 
+### Login & Password Reset
+- Redesigned login page: dark split-panel with animated gradient, feature pills, and pass preview
+- **Forgot Password** flow at `/forgot-password` — sends a reset link via email
+- Anti-enumeration: always shows "check your inbox" regardless of email existence
+- **Reset Password** at `/reset-password/[token]` — password strength meter, confirm field, auto-redirect after success
+- Tokens are single-use, expire in 1 hour, stored in `password_reset_tokens` table
+
 ### Application Settings (Admin Only)
 - **General** tab: app name, tagline, logo upload, support email, support phone
 - **SMTP / Email** tab: full SMTP configuration — host, port, security (STARTTLS / SSL / None), username, password, From name and address
+
+### Email Notifications
+- Welcome email sent on every new staff/manager/admin creation
+- Password reset email with a time-limited reset link
+- Branded HTML emails with gradient header, role badge, credentials box, and CTA button
+- Dev fallback: credentials and reset URL logged to console when SMTP is not configured
 
 ### WhatsApp Messaging
 - Integrate the WhatsApp Web client via Baileys (no cloud API key needed)
@@ -110,6 +126,14 @@ Built with **Next.js 14 App Router**, **Supabase** (PostgreSQL + Storage), **Tai
 - Bulk-send pass messages with per-attendee pass link
 - Real-time send progress via Server-Sent Events (SSE)
 - Configurable per-event message templates with placeholder variables
+
+### Admin Dashboard (Mobile-First)
+- Gradient hero header on mobile with compact icon-only controls
+- Colored gradient stat cards with `active:scale` touch feedback
+- Active event promoted to a full-width tappable hero card at the top
+- Quick actions: 3×2 grid on mobile with colored backgrounds and emoji icons
+- Recent activity: tabbed interface (Check-ins / Passes) instead of side-by-side columns
+- Visitor funnel with shorter labels on mobile, percentage column hidden on small screens
 
 ---
 
@@ -196,11 +220,21 @@ All migration files live in `db/`. Run them in the listed order — each file is
 | `migrate-v6.sql` | Adds `max_visitors` and `vip_seats` to `events` |
 | `migrate-v7.sql` | Adds `partners JSONB` to `events` |
 | `migrate-v8.sql` | Creates `app_settings` key/value table; seeds SMTP and app-name rows |
-| `migrate-v9.sql` | Adds `profile_picture_url TEXT` to `users`; seeds extra `app_settings` rows; includes `avatars` bucket SQL (see note below) |
+| `migrate-v9.sql` | Adds `profile_picture_url TEXT` to `users`; seeds extra `app_settings` rows |
+| `migrate-v10.sql` | Creates `password_reset_tokens` table for the forgot-password flow |
+
+### Dependency order — IMPORTANT
+
+Each migration assumes the previous one has already run. If you skip a migration:
+
+- Running `migrate-v9.sql` before `migrate-v8.sql` will fail with `relation "app_settings" does not exist`
+- Running `migrate-v10.sql` before `schema.sql` will fail because the `users` table won't exist
+
+Always run migrations in the numbered order.
 
 ### migrate-v9.sql extra step
 
-After running `migrate-v9.sql`, separately run this SQL to create the `avatars` storage bucket:
+After running `migrate-v9.sql`, run this SQL separately to create the avatars storage bucket:
 
 ```sql
 INSERT INTO storage.buckets (id, name, public)
@@ -231,12 +265,12 @@ CREATE POLICY "Service update access for avatars"
 5. Confirm success in the output panel (`Success. No rows returned`)
 6. Repeat for each migration file **in order**
 
-To verify a migration ran correctly, run a quick check query:
+To verify a migration ran correctly:
 
 ```sql
--- Example: verify migrate-v9 ran
-SELECT column_name FROM information_schema.columns
-WHERE table_name = 'users' AND column_name = 'profile_picture_url';
+-- Example: verify migrate-v10 ran
+SELECT table_name FROM information_schema.tables
+WHERE table_name = 'password_reset_tokens';
 ```
 
 ---
@@ -251,11 +285,15 @@ visitor-pass/
 │   ├── error.tsx                       # App Router error boundary (catches render errors)
 │   ├── global-error.tsx                # Root layout error boundary (required by Next.js)
 │   ├── globals.css                     # Design tokens + utility classes (input-field, btn-primary, card, badge-*)
-│   ├── login/page.tsx                  # Login form (email + password)
+│   ├── login/page.tsx                  # Dark split-panel login form (email + password + forgot link)
+│   ├── forgot-password/page.tsx        # Request password reset — anti-enumeration always shows "check inbox"
+│   ├── reset-password/[token]/page.tsx # Set new password — validates token, strength meter, auto-redirect
 │   │
 │   ├── admin/                          # Admin portal — role: admin
 │   │   ├── layout.tsx                  # Sidebar nav (Overview, Event, Settings, Team, Account sections)
-│   │   ├── page.tsx                    # Admin dashboard (KPI stats, funnel, recent activity)
+│   │   ├── page.tsx                    # Mobile-first dashboard (KPI stats, funnel, recent activity, tabbed)
+│   │   ├── _components/
+│   │   │   └── event-selector.tsx      # Shared event dropdown used in the dashboard header
 │   │   ├── event-settings/page.tsx     # Create / edit events + live pass preview panel
 │   │   ├── attendees/page.tsx          # Confirmed visitors — paginated table, search, bulk actions
 │   │   ├── contacts/page.tsx           # Contacts & invite status tracking
@@ -284,7 +322,9 @@ visitor-pass/
 │       ├── auth/
 │       │   ├── login/route.ts          # POST — authenticate, issue JWT cookie
 │       │   ├── logout/route.ts         # POST — clear session cookie
-│       │   └── me/route.ts             # GET  — return current session payload
+│       │   ├── me/route.ts             # GET  — return current session payload
+│       │   ├── forgot-password/route.ts # POST — create reset token, send email
+│       │   └── reset-password/route.ts  # GET (validate token) / POST (apply new password)
 │       │
 │       ├── events/
 │       │   ├── route.ts                # GET/POST/PUT/DELETE — event CRUD + logo/partner-logo upload
@@ -319,7 +359,7 @@ visitor-pass/
 │       │
 │       ├── admin/
 │       │   ├── staff/
-│       │   │   ├── route.ts            # GET (list all roles) / POST (create any role)
+│       │   │   ├── route.ts            # GET (list all roles) / POST (create any role + send welcome email)
 │       │   │   └── [id]/route.ts       # GET / PATCH / DELETE (hard delete with guards)
 │       │   ├── assignments/
 │       │   │   ├── route.ts            # GET/POST — list + create event-staff assignments
@@ -345,16 +385,11 @@ visitor-pass/
 │   └── profile/
 │       └── profile-form.tsx            # Shared profile + avatar + password-change form (used by all 3 portals)
 │
-├── services/
-│   ├── event.service.ts                # Event CRUD, logo upload, partner logo upload
-│   ├── pass.service.ts                 # Pass generation (single + bulk), QR token logic
-│   ├── attendee.service.ts             # Attendee CRUD + CSV batch import
-│   └── contact.service.ts             # Contact CRUD + invitation token management
-│
 ├── lib/
 │   ├── auth.ts                         # JWT create/verify, session cookie R/W, requireAuth, requireRole
 │   ├── constants.ts                    # Cookie name (vp_session), session TTL, mobile regex
 │   ├── csv-parser.ts                   # CSV parser with column-alias resolution
+│   ├── mailer.ts                       # Nodemailer wrapper — sendWelcomeEmail, sendPasswordResetEmail
 │   ├── seat-map.ts                     # Seat availability queries + next-seat assignment logic
 │   ├── token.ts                        # Secure token generation, pass-number formatting
 │   ├── utils.ts                        # apiSuccess, apiError helpers, mobile normalization, sanitizeString
@@ -364,6 +399,12 @@ visitor-pass/
 │   └── supabase/
 │       ├── server.ts                   # Supabase client with service-role key (server-only)
 │       └── client.ts                   # Supabase client with anon key (browser-safe)
+│
+├── services/
+│   ├── event.service.ts                # Event CRUD, logo upload, partner logo upload
+│   ├── pass.service.ts                 # Pass generation (single + bulk), QR token logic
+│   ├── attendee.service.ts             # Attendee CRUD + CSV batch import
+│   └── contact.service.ts             # Contact CRUD + invitation token management
 │
 ├── types/
 │   ├── enums.ts                        # UserRole, EventStatus, InviteStatus, etc.
@@ -376,7 +417,7 @@ visitor-pass/
 │   ├── schema.sql
 │   ├── auth-functions.sql
 │   ├── storage-setup.sql
-│   ├── migrate-v2.sql … migrate-v9.sql
+│   ├── migrate-v2.sql … migrate-v10.sql
 │   ├── reset-data.sql                  # DEV ONLY — truncates all event/attendee data
 │   └── run-migrations.mjs              # Node script for automated migration (update credentials before use)
 └── .env.example                        # Environment variable template
@@ -390,7 +431,7 @@ visitor-pass/
 
 | Page | Path | Description |
 |------|------|-------------|
-| Dashboard | `/admin` | KPI stats, visitor funnel, check-in gauge, recent activity |
+| Dashboard | `/admin` | Mobile-first KPI stats, visitor funnel, tabbed recent activity |
 | Events | `/admin/event-settings` | Create/edit events with live pass preview |
 | Upload Contacts | `/admin/import` | CSV upload for bulk contact import |
 | Contacts & Invites | `/admin/contacts` | Manage contacts, track invite status |
@@ -420,6 +461,9 @@ visitor-pass/
 
 | Page | Path | Description |
 |------|------|-------------|
+| Login | `/login` | Dark split-panel login form |
+| Forgot Password | `/forgot-password` | Request password reset email |
+| Reset Password | `/reset-password/[token]` | Set new password via email link |
 | Visitor Pass | `/p/[token]` | Attendee's digital pass with QR code and event details |
 | Self-Registration | `/invite/[token]` | Invitation response form for contacts |
 
@@ -450,6 +494,9 @@ HTTP status codes are set appropriately (200, 201, 400, 401, 403, 404, 409, 500)
 | POST | `/api/auth/login` | Public | Body: `{ email, password }` — returns session user, sets `vp_session` JWT cookie |
 | POST | `/api/auth/logout` | Any | Clears the `vp_session` cookie |
 | GET | `/api/auth/me` | Any | Returns current session payload `{ id, name, email, role }` |
+| POST | `/api/auth/forgot-password` | Public | Body: `{ email }` — creates reset token, sends email. Always returns success |
+| GET | `/api/auth/reset-password?token=xxx` | Public | Validates a reset token. Returns `{ valid: true, email }` or error |
+| POST | `/api/auth/reset-password` | Public | Body: `{ token, password }` — applies the new password, marks token used |
 
 ---
 
@@ -540,7 +587,7 @@ HTTP status codes are set appropriately (200, 201, 400, 401, 403, 404, 409, 500)
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET | `/api/admin/staff` | Admin | List staff. Query params: `role=admin|manager|gate_staff`, `active=true|false`, `page=N` |
-| POST | `/api/admin/staff` | Admin | Create staff. Body: `{ name, email, mobile, password, role, designation? }`. Role can be `admin`, `manager`, or `gate_staff` |
+| POST | `/api/admin/staff` | Admin | Create staff. Sends welcome email automatically. Body: `{ name, email, mobile, password, role, designation? }` |
 | GET | `/api/admin/staff/[id]` | Admin | Get one staff member + their event assignments |
 | PATCH | `/api/admin/staff/[id]` | Admin | Update fields: `name`, `email`, `mobile`, `role`, `active`, `designation`, `password` |
 | DELETE | `/api/admin/staff/[id]` | Admin | Hard delete the user record |
@@ -625,6 +672,53 @@ Staff accounts are pre-created by admins, not self-registered. No email verifica
 
 ---
 
+## Forgot Password Flow
+
+1. User visits `/forgot-password` and submits their email
+2. `POST /api/auth/forgot-password` — invalidates any existing unused tokens for that user, creates a new 32-byte hex token in `password_reset_tokens` with a 1-hour expiry, sends a reset email
+3. The email contains a link to `/reset-password/[token]`
+4. The reset page calls `GET /api/auth/reset-password?token=xxx` on load to validate the token
+5. If valid, the user fills in a new password and submits
+6. `POST /api/auth/reset-password` — verifies the token is valid and unused, updates `password_hash` in `users`, marks `used_at` in the token row
+7. The page auto-redirects to `/login` after 3 seconds
+
+**Anti-enumeration**: `POST /api/auth/forgot-password` always returns `200 OK` regardless of whether the email exists in the database. This prevents attackers from enumerating valid email addresses.
+
+---
+
+## Email / SMTP System
+
+All email is handled by `lib/mailer.ts` using **Nodemailer**.
+
+### Configuration
+
+SMTP credentials are stored in the `app_settings` table (not `.env`). Configure via **Admin → App Settings → Email/SMTP**.
+
+| Setting key | Example |
+|-------------|---------|
+| `smtp_host` | `smtp.gmail.com` |
+| `smtp_port` | `587` |
+| `smtp_secure` | `starttls` / `ssl` / `none` |
+| `smtp_user` | `youraddress@gmail.com` |
+| `smtp_password` | app password or SMTP password |
+| `smtp_from_name` | `Visitor Pass` |
+| `smtp_from_email` | `noreply@yourdomain.com` |
+
+### Dev mode (no SMTP configured)
+
+When `smtp_host`, `smtp_user`, or `smtp_password` is missing, `mailer.ts` skips sending and logs the full email content (including credentials or reset link) to the server console. This is the expected behaviour in local development.
+
+### Email functions
+
+| Function | When it's sent |
+|----------|---------------|
+| `sendWelcomeEmail(opts)` | After `POST /api/admin/staff` creates a new user |
+| `sendPasswordResetEmail(opts)` | After `POST /api/auth/forgot-password` |
+
+Both functions are called **non-blocking** (`.catch()` pattern) so email failure never causes the API response to fail.
+
+---
+
 ## CSV Import Format
 
 ### Contact / Attendee Import
@@ -653,24 +747,6 @@ Priya Patil,8765432109,XYZ Exports,
 3. **Deduplicate within CSV** — skip duplicate mobile numbers in the same file
 4. **Deduplicate against DB** — fetch existing mobiles for the event, skip matches
 5. **Batch insert** — insert in batches of 100 rows
-
-### Import Response
-
-```json
-{
-  "success": true,
-  "data": {
-    "total_rows": 210,
-    "valid_rows": 205,
-    "inserted": 198,
-    "duplicates_skipped": 7,
-    "invalid_rows": 5,
-    "errors": [
-      { "row": 3, "reason": "Invalid mobile number: abc123" }
-    ]
-  }
-}
-```
 
 ---
 
@@ -824,7 +900,7 @@ The **Admin → Staff Management** page manages all user accounts across all rol
 
 ### Creating users
 
-Any role (`admin`, `manager`, `gate_staff`) can be selected when creating a new user. The API (`POST /api/admin/staff`) accepts all three roles.
+Any role (`admin`, `manager`, `gate_staff`) can be selected when creating a new user. The API (`POST /api/admin/staff`) accepts all three roles and automatically sends a welcome email with login credentials.
 
 ### Editing users
 
@@ -845,8 +921,6 @@ Click the trash icon on a row. A confirmation modal requires typing `DELETE` bef
 | Deactivate the last active admin | Would leave zero active admins |
 | Delete the last active admin | Would leave zero active admins |
 
-The "You" badge is shown on your own row to make it obvious which row is yours.
-
 ---
 
 ## Error Handling
@@ -858,7 +932,7 @@ Two required files handle rendering errors:
 - `app/error.tsx` — catches errors within any route segment, shows a styled "Try again" card
 - `app/global-error.tsx` — catches errors in the root layout itself (renders its own `<html>`)
 
-Both are `'use client'` components that receive `{ error, reset }` props. Without these files, Next.js App Router shows `missing required error components, refreshing...` in a loop instead of a proper error UI.
+Both are `'use client'` components that receive `{ error, reset }` props. Without these files, Next.js App Router shows `missing required error components, refreshing...` in a loop.
 
 ### API errors
 
@@ -867,8 +941,6 @@ All API routes return the standard envelope:
 ```json
 { "success": false, "error": { "message": "..." } }
 ```
-
-Common status codes:
 
 | Code | Meaning |
 |------|---------|
@@ -887,13 +959,10 @@ Common status codes:
 
 Only run **one** instance of `npm run dev` at a time. Next.js will automatically try ports 3001, 3002, etc. if 3000 is taken — make sure to browse to the correct port shown in the terminal output.
 
-To stop all dev servers:
+To stop all dev servers (Windows PowerShell):
 
-```bash
-# Windows (PowerShell)
+```powershell
 Get-Process -Name node | Stop-Process -Force
-
-# Then restart
 npm run dev
 ```
 
@@ -917,12 +986,30 @@ The project uses `.tsx` for routes that contain JSX (e.g. `app/api/pass/image/ro
 
 Always use the server client in API routes (`createServerClient()`). Never expose the service-role key to the browser.
 
+### File uploads to Supabase Storage
+
+Always convert `File` objects to `Buffer` before uploading to Supabase Storage:
+
+```typescript
+const arrayBuffer = await file.arrayBuffer();
+const buffer = Buffer.from(arrayBuffer);
+await db.storage.from('bucket').upload(path, buffer, { contentType });
+```
+
+Always derive `contentType` from the file extension (not `file.type`) because browsers may omit or send a non-standard MIME type:
+
+```typescript
+const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+const extMap: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' };
+const contentType = extMap[ext] || file.type;
+```
+
 ### Adding a new migration
 
-1. Create `db/migrate-vN.sql` with idempotent SQL (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, `CREATE OR REPLACE`)
+1. Create `db/migrate-vN.sql` with idempotent SQL (`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`)
 2. Run it in the Supabase SQL Editor
 3. Update this README's migration table
-4. If the migration adds a column that existing API routes select, add the column-fallback pattern (see `app/api/profile/route.ts` GET handler for an example)
+4. If the migration adds a new column that existing API routes select, add the column-fallback pattern (see `app/api/profile/route.ts` GET handler for an example)
 
 ### TypeScript checking
 
@@ -932,20 +1019,34 @@ node node_modules/typescript/bin/tsc --noEmit
 
 All files must pass without errors before committing.
 
+### Git remotes
+
+The project has two remotes:
+
+| Remote name | Repository | Purpose |
+|-------------|-----------|---------|
+| `origin` | `github.com/oreodigi/visitor-pass` | Backup / source of truth |
+| `vercel` | `github.com/oreodigi/visitor-passx` | Vercel watches this — push here to deploy |
+
+Always push to **both** remotes:
+
+```bash
+git push vercel main && git push origin main
+```
+
 ---
 
 ## Deployment Checklist
 
 - [ ] Change default passwords for `admin@msme.local` and `staff@msme.local`
 - [ ] Set a strong `JWT_SECRET` (run `openssl rand -base64 48`)
-- [ ] Set `NEXT_PUBLIC_APP_URL` to your production domain (used in QR code and invite links)
-- [ ] Run all SQL migrations in order in the Supabase SQL Editor
+- [ ] Set `NEXT_PUBLIC_APP_URL` to your production domain (used in QR code, invite links, and password reset emails)
+- [ ] Run all SQL migrations in order (schema → auth-functions → storage-setup → v2 → … → v10)
 - [ ] Create the `event-logos` bucket (from `storage-setup.sql`) with public-read policy
 - [ ] Create the `avatars` bucket (from `migrate-v9.sql` comments) with public-read policy
-- [ ] Enable Row-Level Security (RLS) on Supabase tables if the anon key is exposed on the client
 - [ ] Configure SMTP settings: **Admin → App Settings → Email/SMTP**
 - [ ] Upload app logo and set app name: **Admin → App Settings → General**
-- [ ] Set `NEXT_PUBLIC_APP_URL` correctly — wrong value will break QR pass links
+- [ ] Test forgot-password flow end-to-end (check email or server console in dev)
 - [ ] Test CSV import with a sample file
 - [ ] Test pass generation and QR scan end-to-end on a real device
 - [ ] Test WhatsApp connection; send a test message before the event
@@ -963,6 +1064,7 @@ All files must pass without errors before committing.
 | File Storage | Supabase Storage | `event-logos` bucket for logos + avatars |
 | Auth | Custom JWT (`jose`) | HTTP-only cookies, no external provider |
 | Password Hashing | PostgreSQL `pgcrypto` (bcrypt) | Via RPC functions `crypt_password` / `verify_password` |
+| Email | Nodemailer | SMTP config stored in `app_settings` DB table |
 | QR Generation | `qrcode` | Generates QR code data URL for pass |
 | Pass Image | Satori + sharp | JSX → SVG → PNG, 600 px wide |
 | WhatsApp | Baileys | WhatsApp Web reverse-engineered client; no API key |
