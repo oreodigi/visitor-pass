@@ -60,8 +60,7 @@ npm start -- --app-url https://ticket.rimacle.com --token RUNNER_TOKEN --event-i
 
 Default sending profile:
 
-- 45 to 90 seconds between messages
-- 15 messages per batch
-- 5 minute break between batches
+- 45 to 60 seconds between messages
+- hard cap of 50 sends per rolling hour
 
 Use slower settings for new WhatsApp numbers or high-value campaigns.

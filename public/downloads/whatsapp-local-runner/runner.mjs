@@ -11,9 +11,10 @@ const DEFAULTS = {
   appUrl: 'https://ticket.rimacle.com',
   mode: 'invites',
   minDelay: 45,
-  maxDelay: 90,
+  maxDelay: 60,
   batchSize: 15,
   batchBreak: 300,
+  hourlyLimit: 50,
   countryCode: '91',
   limit: 500,
   dryRun: false,
@@ -44,6 +45,7 @@ function parseArgs(env) {
     maxDelay: Number(env.MAX_DELAY || process.env.MAX_DELAY || DEFAULTS.maxDelay),
     batchSize: Number(env.BATCH_SIZE || process.env.BATCH_SIZE || DEFAULTS.batchSize),
     batchBreak: Number(env.BATCH_BREAK || process.env.BATCH_BREAK || DEFAULTS.batchBreak),
+    hourlyLimit: Number(env.HOURLY_LIMIT || process.env.HOURLY_LIMIT || DEFAULTS.hourlyLimit),
     countryCode: String(env.COUNTRY_CODE || process.env.COUNTRY_CODE || DEFAULTS.countryCode).replace(/\D/g, ''),
     limit: Number(env.LIMIT || process.env.LIMIT || DEFAULTS.limit),
   };
@@ -60,6 +62,7 @@ function parseArgs(env) {
     else if (arg === '--max-delay') args.maxDelay = Number(next), i += 1;
     else if (arg === '--batch-size') args.batchSize = Number(next), i += 1;
     else if (arg === '--batch-break') args.batchBreak = Number(next), i += 1;
+    else if (arg === '--hourly-limit') args.hourlyLimit = Number(next), i += 1;
     else if (arg === '--country-code') args.countryCode = String(next || '91').replace(/\D/g, ''), i += 1;
     else if (arg === '--limit') args.limit = Number(next), i += 1;
     else if (arg === '--dry-run') args.dryRun = true;
@@ -81,10 +84,9 @@ Options:
   --app-url https://ticket.rimacle.com
   --token RUNNER_TOKEN
   --min-delay 45
-  --max-delay 90
-  --batch-size 15
-  --batch-break 300
-  --limit 100
+  --max-delay 60
+  --hourly-limit 50
+  --limit 500
   --dry-run
 `);
 }
@@ -97,6 +99,24 @@ function randomDelay(minSeconds, maxSeconds) {
   const min = Math.max(1, Math.floor(minSeconds));
   const max = Math.max(min, Math.floor(maxSeconds));
   return (Math.floor(Math.random() * (max - min + 1)) + min) * 1000;
+}
+
+async function waitForHourlySlot(args, attemptTimestamps) {
+  const hourlyLimit = Math.max(1, Math.floor(args.hourlyLimit || DEFAULTS.hourlyLimit));
+  const windowMs = 60 * 60 * 1000;
+
+  while (true) {
+    const now = Date.now();
+    while (attemptTimestamps.length > 0 && now - attemptTimestamps[0] >= windowMs) {
+      attemptTimestamps.shift();
+    }
+
+    if (attemptTimestamps.length < hourlyLimit) return;
+
+    const waitMs = Math.max(1000, attemptTimestamps[0] + windowMs - now);
+    console.log(`Hourly safety pause: ${hourlyLimit} sends reached. Waiting ${Math.ceil(waitMs / 60000)} minute(s)...`);
+    await sleep(waitMs);
+  }
 }
 
 function openQrPage(filePath) {
@@ -185,10 +205,11 @@ async function main() {
   if (recipients.length === 0) return;
 
   const client = args.dryRun ? null : await createClientSession();
-  console.log(args.dryRun ? 'Dry run enabled. Messages will not be sent.' : 'WhatsApp ready. Starting send run.');
+  console.log(args.dryRun ? 'Dry run enabled. Messages will not be sent.' : `WhatsApp ready. Safety speed: ${args.hourlyLimit}/hour, ${args.minDelay}-${args.maxDelay}s gap.`);
 
   let sent = 0;
   let failed = 0;
+  const attemptTimestamps = [];
 
   try {
     for (let i = 0; i < recipients.length; i += 1) {
@@ -199,10 +220,15 @@ async function main() {
         if (args.dryRun) {
           console.log(`\n[DRY RUN] ${row.mobile}\n${row.message}\n`);
         } else {
+          await waitForHourlySlot(args, attemptTimestamps);
+          attemptTimestamps.push(Date.now());
           await client.sendMessage(chatId, row.message);
           await apiFetch(args, '/api/local-runner/mark', {
             method: 'POST',
             body: { id: row.id, event_id: args.eventId, mode: args.mode, status: 'sent' },
+          }).catch((error) => {
+            const reason = error instanceof Error ? error.message : String(error);
+            console.warn(`Sent ${row.mobile}, but status update failed: ${reason}`);
           });
         }
         sent += 1;
@@ -220,9 +246,8 @@ async function main() {
       }
 
       const isLast = i === recipients.length - 1;
-      if (!isLast) {
-        const isBatchEnd = (i + 1) % args.batchSize === 0;
-        const delay = isBatchEnd ? args.batchBreak * 1000 : randomDelay(args.minDelay, args.maxDelay);
+      if (!isLast && !args.dryRun) {
+        const delay = randomDelay(args.minDelay, args.maxDelay);
         console.log(`Waiting ${Math.round(delay / 1000)}s before next send...`);
         await sleep(delay);
       }
