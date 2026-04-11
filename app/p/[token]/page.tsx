@@ -35,12 +35,12 @@ export default async function PublicPassPage({ params }: PageProps) {
   const result = await getPublicPassByToken(token);
   if (result.error || !result.data) return <InvalidPass />;
 
-  const { event, attendee, pass_url } = result.data;
+  const { app, event, attendee, pass_url } = result.data;
   const qrDataUrl = await generateQrDataUrl(pass_url);
 
   return (
     <div className="min-h-screen bg-stone-100 px-4 py-6 flex flex-col items-center">
-      <PassCard event={event} attendee={attendee} qrDataUrl={qrDataUrl} />
+      <PassCard app={app} event={event} attendee={attendee} qrDataUrl={qrDataUrl} />
 
       {/* Download button */}
       <div className="mt-4 flex flex-col items-center gap-2 w-full max-w-sm">

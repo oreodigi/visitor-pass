@@ -1,4 +1,12 @@
+'use client';
+
+import { PASS_POWERED_BY, normalizeTermsList } from '@/lib/pass-terms';
+
 interface PassCardProps {
+  app: {
+    name: string;
+    logo_url: string | null;
+  };
   event: {
     title: string;
     event_date: string;
@@ -46,9 +54,10 @@ function formatMobile(mobile: string): string {
   return mobile.length === 10 ? `${mobile.slice(0, 5)} ${mobile.slice(5)}` : mobile;
 }
 
-export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) {
+export default function PassCard({ app, event, attendee, qrDataUrl }: PassCardProps) {
   const displayName = attendee.name || 'Participant';
   const isCheckedIn = !!attendee.checked_in_at;
+  const terms = normalizeTermsList(event.pass_terms_conditions);
 
   return (
     <div className="mx-auto w-full max-w-sm" id="pass-card-root">
@@ -56,22 +65,20 @@ export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) 
 
         {/* ── Header Band ────────────────────────────────── */}
         <div className="bg-emerald-800 px-5 py-4">
-          {event.logo_url && (
+          {app.logo_url && (
             <div className="mb-3 flex justify-center">
               <img
-                src={event.logo_url}
-                alt="Event logo"
+                src={app.logo_url}
+                alt={`${app.name} logo`}
                 className="h-14 w-auto max-w-[180px] object-contain rounded"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             </div>
           )}
+          <p className="mb-1 text-center text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
+            {app.name || 'Visitor Pass'}
+          </p>
           <h1 className="text-center text-base font-bold text-white leading-tight">{event.title}</h1>
-          <div className="mt-1.5 flex justify-center">
-            <span className="inline-block rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold tracking-wider text-emerald-100 uppercase">
-              Visitor Pass
-            </span>
-          </div>
         </div>
 
         {/* ── Checked-In Banner ───────────────────────────── */}
@@ -223,16 +230,22 @@ export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) 
         )}
 
         {/* ── Terms & Conditions ──────────────────────────── */}
-        {event.pass_terms_conditions && (
+        {terms.length > 0 && (
           <div className="border-t border-stone-200 bg-stone-100 px-5 py-4">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-500">
               Terms &amp; Conditions
             </p>
-            <p className="text-[10px] text-stone-500 leading-relaxed whitespace-pre-line">
-              {event.pass_terms_conditions}
-            </p>
+            <ol className="list-decimal space-y-1 pl-4 text-[10px] text-stone-500 leading-relaxed">
+              {terms.map((term, index) => (
+                <li key={`${term}-${index}`}>{term}</li>
+              ))}
+            </ol>
           </div>
         )}
+
+        <div className="border-t border-stone-200 bg-white px-5 py-3">
+          <p className="text-center text-[10px] font-semibold text-emerald-800">{PASS_POWERED_BY}</p>
+        </div>
       </div>
     </div>
   );

@@ -139,7 +139,7 @@ export async function updateAttendee(
 // 1. MVP scope — no audit trail requirement yet
 // 2. Attendees are tied to mobile numbers; re-adding is trivial
 // 3. Soft delete adds query complexity across every read
-// 4. check-in logs already capture historical audit data
+// 4. Deleting a checked-in attendee intentionally removes their check-in logs
 // If soft delete is needed later, add a `deleted_at` column.
 
 export async function deleteAttendee(
@@ -149,10 +149,9 @@ export async function deleteAttendee(
 
   const db = createServerClient();
 
-  // Prevent deleting already checked-in attendees
   const { data: attendee } = await db
     .from('attendees')
-    .select('id, checked_in_at')
+    .select('id, contact_id')
     .eq('id', id)
     .single();
 
@@ -160,11 +159,24 @@ export async function deleteAttendee(
     return { success: false, error: 'Attendee not found' };
   }
 
-  if (attendee.checked_in_at) {
-    return {
-      success: false,
-      error: 'Cannot delete an attendee who has already checked in',
-    };
+  // Remove scan audit rows first so checked-in visitors can also be deleted.
+  // The seat becomes available immediately because occupancy is derived from
+  // active attendee rows with a seat_number.
+  const { error: logDeleteError } = await db.from('checkin_logs').delete().eq('attendee_id', id);
+  if (logDeleteError) {
+    console.error('Delete attendee check-in log error:', logDeleteError);
+    return { success: false, error: 'Failed to remove check-in log' };
+  }
+
+  if (attendee.contact_id) {
+    await db
+      .from('contacts')
+      .update({
+        status: 'invited',
+        attendee_id: null,
+        responded_at: null,
+      })
+      .eq('id', attendee.contact_id);
   }
 
   const { error } = await db.from('attendees').delete().eq('id', id);

@@ -361,6 +361,10 @@ export async function bulkGeneratePasses(
 // ── Get Public Pass Data ──────────────────────────────────
 
 export interface PublicPassData {
+  app: {
+    name: string;
+    logo_url: string | null;
+  };
   attendee: {
     name: string | null;
     mobile: string;
@@ -414,8 +418,21 @@ export async function getPublicPassByToken(
   const passStyleResult = await loadPassStyleConfig(db, attendee.event_id);
   if (passStyleResult.error) return { error: passStyleResult.error };
 
+  const { data: appSettings } = await db
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['app_name', 'app_logo_url']);
+
+  const appSettingsMap = Object.fromEntries(
+    (appSettings || []).map((row) => [row.key, row.value])
+  ) as Record<string, string | undefined>;
+
   return {
     data: {
+      app: {
+        name: appSettingsMap.app_name?.trim() || 'Visitor Pass',
+        logo_url: appSettingsMap.app_logo_url?.trim() || null,
+      },
       attendee: {
         name: attendee.name,
         mobile: attendee.mobile,

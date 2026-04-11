@@ -1,4 +1,5 @@
 import type { PublicPassData } from '@/services/pass.service';
+import { PASS_POWERED_BY, normalizeTermsList } from '@/lib/pass-terms';
 
 interface Props {
   data: PublicPassData;
@@ -31,7 +32,7 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
   const { event, attendee } = data;
   const resolvedPartners = partners ?? event.partners ?? [];
   const name = attendee.name || 'Participant';
-  const terms = event.pass_terms_conditions;
+  const terms = normalizeTermsList(event.pass_terms_conditions);
   const style = event.pass_style;
 
   return (
@@ -66,32 +67,19 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
             alignItems: 'center',
           }}
         >
-          {event.logo_url && (
+          {data.app.logo_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={event.logo_url}
+              src={data.app.logo_url}
               alt=""
               style={{ height: '52px', maxWidth: '180px', objectFit: 'contain', marginBottom: '12px', borderRadius: '6px' }}
             />
           )}
+          <div style={{ display: 'flex', color: 'rgba(255,255,255,0.82)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '6px' }}>
+            {data.app.name || 'Visitor Pass'}
+          </div>
           <div style={{ display: 'flex', color: '#ffffff', fontSize: '18px', fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>
             {event.title}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              marginTop: '8px',
-              backgroundColor: style.accent_color,
-              borderRadius: '999px',
-              padding: '3px 14px',
-              color: '#ffffff',
-              fontSize: '11px',
-              fontWeight: 600,
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Visitor Pass
           </div>
         </div>
 
@@ -178,14 +166,25 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
           </div>
         )}
 
-        {terms && (
+        {terms.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid #d6d3d1', backgroundColor: style.surface_color, padding: '12px 28px' }}>
             <div style={{ display: 'flex', fontSize: '9px', fontWeight: 700, color: '#a8a29e', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
               Terms &amp; Conditions
             </div>
-            <div style={{ display: 'flex', fontSize: '9px', color: '#a8a29e', lineHeight: 1.5 }}>{terms}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {terms.map((term, index) => (
+                <div key={`${term}-${index}`} style={{ display: 'flex', gap: '6px', fontSize: '9px', color: '#a8a29e', lineHeight: 1.45 }}>
+                  <div style={{ display: 'flex', width: '14px', flexShrink: 0 }}>{index + 1}.</div>
+                  <div style={{ display: 'flex', flex: 1 }}>{term}</div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
+
+        <div style={{ display: 'flex', justifyContent: 'center', borderTop: '1px solid #e7e5e4', backgroundColor: '#ffffff', padding: '10px 28px' }}>
+          <div style={{ display: 'flex', fontSize: '9px', fontWeight: 700, color: style.accent_color }}>{PASS_POWERED_BY}</div>
+        </div>
       </div>
     </div>
   );

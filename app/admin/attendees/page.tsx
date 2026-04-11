@@ -87,7 +87,7 @@ function ActionMenu({
           <div className="my-2 border-t border-slate-100" />
           <button onClick={() => { onEdit(attendee); setOpen(false); }} className={itemCls}><span className="h-2.5 w-2.5 rounded-full bg-amber-400" />Edit attendee</button>
           <button onClick={() => { onRegenerate(attendee); setOpen(false); }} className={itemCls}><span className="h-2.5 w-2.5 rounded-full bg-indigo-400" />Regenerate pass</button>
-          <button onClick={() => { onDelete(attendee); setOpen(false); }} disabled={!!attendee.checked_in_at} className={`${itemCls} ${attendee.checked_in_at ? 'cursor-not-allowed opacity-40' : 'text-rose-700 hover:bg-rose-50'}`}><span className="h-2.5 w-2.5 rounded-full bg-rose-400" />{attendee.checked_in_at ? 'Checked-in attendees cannot be deleted' : 'Delete attendee'}</button>
+          <button onClick={() => { onDelete(attendee); setOpen(false); }} className={`${itemCls} text-rose-700 hover:bg-rose-50`}><span className="h-2.5 w-2.5 rounded-full bg-rose-400" />Delete attendee</button>
         </div>
       ) : null}
     </div>
@@ -249,7 +249,10 @@ export default function AttendeesPage() {
   }
 
   async function handleDelete(attendee: Attendee) {
-    if (attendee.checked_in_at || !window.confirm(`Delete ${attendee.name || attendee.mobile}? This cannot be undone.`)) return;
+    const warning = attendee.checked_in_at
+      ? `Delete checked-in visitor ${attendee.name || attendee.mobile}? Their check-in log will be removed and seat ${attendee.seat_number || ''} will become available. This cannot be undone.`
+      : `Delete ${attendee.name || attendee.mobile}? Their seat ${attendee.seat_number || ''} will become available. This cannot be undone.`;
+    if (!window.confirm(warning)) return;
     setActionLoading(attendee.id);
     try {
       const res = await fetch(`/api/attendees?id=${attendee.id}`, { method: 'DELETE' });
@@ -308,12 +311,8 @@ export default function AttendeesPage() {
   }
 
   async function bulkDelete() {
-    const deletable = selectedAttendees.filter((attendee) => !attendee.checked_in_at);
-    if (deletable.length === 0) {
-      setMessage({ type: 'error', text: 'Selected attendees are all checked in and cannot be deleted.' });
-      return;
-    }
-    if (!window.confirm(`Delete ${deletable.length} attendee(s)? This cannot be undone.`)) return;
+    const deletable = selectedAttendees;
+    if (!window.confirm(`Delete ${deletable.length} attendee(s)? Checked-in logs will be removed and assigned seats will become available. This cannot be undone.`)) return;
     setBulkLoading(true);
     let deleted = 0;
     for (const attendee of deletable) {

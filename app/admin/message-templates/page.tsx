@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { EventSelectorBar, type EventSummary } from '@/app/admin/_components/event-selector';
 import { DEFAULT_INVITE_TEMPLATE, DEFAULT_PASS_TEMPLATE, renderTemplate } from '@/lib/whatsapp';
+import { normalizeTermsList } from '@/lib/pass-terms';
 
 // ── Variable token definitions ─────────────────────────────
 
@@ -181,6 +182,8 @@ export default function MessageTemplatesPage() {
     const tpl = passTemplate.trim() || DEFAULT_PASS_TEMPLATE;
     return renderTemplate(tpl, PASS_SAMPLE);
   }, [passTemplate]);
+
+  const termsPreview = normalizeTermsList(termsConditions);
 
   const inputCls = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/15 transition-colors font-mono resize-none';
 
@@ -378,10 +381,14 @@ export default function MessageTemplatesPage() {
             {tab === 'pass' && (
               <div className="space-y-4">
                 <WaPreview text={passPreview()} />
-                {termsConditions.trim() && (
+                {termsPreview.length > 0 && (
                   <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                     <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">Terms &amp; Conditions (on pass)</p>
-                    <p className="text-[10px] text-slate-500 leading-relaxed whitespace-pre-line">{termsConditions}</p>
+                    <ol className="list-decimal space-y-1 pl-4 text-[10px] text-slate-600 leading-relaxed">
+                      {termsPreview.map((term, index) => (
+                        <li key={`${term}-${index}`}>{term}</li>
+                      ))}
+                    </ol>
                   </div>
                 )}
               </div>

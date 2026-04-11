@@ -86,18 +86,6 @@ function RowConfigItem({
 
   const end = rowEnd(row);
 
-  function handleFromChange(val: string) {
-    const from = Math.max(1, parseInt(val) || 1);
-    onChange('start_from', from);
-    // Keep count; end shifts automatically
-  }
-
-  function handleToChange(val: string) {
-    const to = parseInt(val) || row.start_from;
-    const newCount = Math.max(1, to - row.start_from + 1);
-    onChange('count', newCount);
-  }
-
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
       {/* Row 1: move + label + category + actions */}
@@ -175,38 +163,27 @@ function RowConfigItem({
         </button>
       </div>
 
-      {/* Row 2: From / To seat numbers + Aisle */}
-      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end">
-        {/* From */}
+      {/* Row 2: Seat count + Aisle */}
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:items-end [&>span]:hidden">
+        {/* Seat count */}
         <div className="flex flex-col gap-0.5">
-          <label className="text-[10px] font-medium text-slate-500">From seat</label>
+          <label className="text-[10px] font-medium text-slate-500">Seats in row</label>
           <input
             type="number"
-            value={row.start_from}
+            value={row.count}
             min={1}
-            onChange={(e) => handleFromChange(e.target.value)}
+            max={500}
+            onChange={(e) => onChange('count', Math.max(1, parseInt(e.target.value) || 1))}
             className={`${inp} w-20`}
           />
         </div>
 
         <span className="text-slate-400 text-sm mb-1.5">→</span>
 
-        {/* To */}
-        <div className="flex flex-col gap-0.5">
-          <label className="text-[10px] font-medium text-slate-500">To seat</label>
-          <input
-            type="number"
-            value={end}
-            min={row.start_from}
-            onChange={(e) => handleToChange(e.target.value)}
-            className={`${inp} w-20`}
-          />
-        </div>
-
         {/* Count badge */}
         <div className="col-span-2 mb-1.5 sm:col-span-1">
           <span className="text-xs text-slate-500 bg-slate-100 rounded-md px-2 py-1 font-mono">
-            {row.count} seat{row.count !== 1 ? 's' : ''}
+            {row.count} seat{row.count !== 1 ? 's' : ''}: {row.label}-{row.start_from} to {row.label}-{end}
           </span>
         </div>
 

@@ -81,11 +81,24 @@ async function getPublicPassByToken(token: string, origin: string): Promise<{ da
     .eq('key', `pass_style_config:${attendee.event_id}`)
     .maybeSingle();
 
+  const { data: appSettings } = await db
+    .from('app_settings')
+    .select('key, value')
+    .in('key', ['app_name', 'app_logo_url']);
+
+  const appSettingsMap = Object.fromEntries(
+    (appSettings || []).map((row) => [row.key, row.value])
+  ) as Record<string, string | undefined>;
+
   const passUrl = attendee.pass_url || `${origin.replace(/\/+$/, '')}/p/${token}`;
   const passStyle = normalizePassStyle(parseSettingsValue(styleRow?.value));
 
   return {
     data: {
+      app: {
+        name: appSettingsMap.app_name?.trim() || 'Visitor Pass',
+        logo_url: appSettingsMap.app_logo_url?.trim() || null,
+      },
       attendee: {
         name: attendee.name,
         mobile: attendee.mobile,
