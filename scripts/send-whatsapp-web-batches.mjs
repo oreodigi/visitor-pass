@@ -228,7 +228,7 @@ async function loadRecipients(db, eventId, mode, limit) {
     .from('contacts')
     .select('id,mobile,invitation_link')
     .eq('event_id', eventId)
-    .in('status', ['uploaded', 'invited'])
+    .eq('status', 'uploaded')
     .order('created_at', { ascending: true });
   if (limit > 0) query = query.limit(limit);
   const { data, error } = await query;

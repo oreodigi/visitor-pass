@@ -1,0 +1,18 @@
+{
+  "name": "rimacle-whatsapp-local-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node runner.mjs",
+    "send:invites": "node runner.mjs --mode invites",
+    "send:passes": "node runner.mjs --mode passes"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.34.6"
+  },
+  "engines": {
+    "node": ">=20 <23"
+  }
+}

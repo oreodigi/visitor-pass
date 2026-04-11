@@ -260,7 +260,7 @@ export async function getPendingContacts(
     .from('contacts')
     .select('id, mobile, invitation_link')
     .eq('event_id', eventId)
-    .in('status', ['uploaded', 'invited'])
+    .eq('status', 'uploaded')
     .order('created_at', { ascending: true });
 
   if (error) {

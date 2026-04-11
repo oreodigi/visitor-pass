@@ -58,6 +58,15 @@ export function renderTemplate(
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? `{{${key}}}`);
 }
 
+function cleanupRenderedMessage(message: string): string {
+  return message
+    .split('\n')
+    .filter((line) => line.trim() !== 'For assistance:')
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // ── Invite message ─────────────────────────────────────────
 
 export const DEFAULT_INVITE_TEMPLATE = [
@@ -134,7 +143,7 @@ export function buildPassMessage(
   vars.terms_block = vars.terms ? `*Terms & Conditions*\n${vars.terms}` : '';
 
   const template = ctx?.pass_message_template?.trim() || DEFAULT_PASS_TEMPLATE;
-  const rendered = renderTemplate(template, vars);
+  const rendered = cleanupRenderedMessage(renderTemplate(template, vars));
   if (vars.terms && !template.includes('{{terms}}') && !template.includes('{{terms_block}}')) {
     return `${rendered.trim()}\n\n${vars.terms_block}`;
   }
