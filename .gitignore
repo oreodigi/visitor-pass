@@ -21,6 +21,12 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# Android build output
+mobile/**/.gradle/
+mobile/**/build/
+mobile/**/*.apk
+mobile/**/*.aab
+
 # misc
 .vercel
 
