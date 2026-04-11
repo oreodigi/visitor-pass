@@ -3,10 +3,10 @@ export const dynamic = 'force-dynamic';
 import { NextRequest } from 'next/server';
 import { requireRole, AuthError } from '@/lib/auth';
 import { normalizePublicUrl } from '@/lib/app-url';
-import { getWhatsAppProvider, getWhatsAppRuntimeBlockReason } from '@/lib/runtime';
+import { getWhatsAppRuntimeBlockReason } from '@/lib/runtime';
 import { apiSuccess, apiError } from '@/lib/utils';
-import { startBulkSend, stopBulkSend, DEFAULT_CONFIG, sendInviteItem, type BulkSendConfig, type BulkSendItem } from '@/lib/wa-sender';
-import { getPendingContacts, markInviteSent } from '@/services/contact.service';
+import { startBulkSend, stopBulkSend, DEFAULT_CONFIG, type BulkSendConfig } from '@/lib/wa-sender';
+import { getPendingContacts } from '@/services/contact.service';
 import { createServerClient } from '@/lib/supabase/server';
 import { type EventContext } from '@/lib/whatsapp';
 
@@ -27,9 +27,7 @@ export async function POST(request: NextRequest) {
       batchSize: body.batch_size ?? DEFAULT_CONFIG.batchSize,
       batchBreakMs: body.batch_break_ms ?? DEFAULT_CONFIG.batchBreakMs,
     };
-    const provider = getWhatsAppProvider();
     const skipIds = new Set(Array.isArray(body.skip_ids) ? body.skip_ids.filter((id: unknown) => typeof id === 'string') : []);
-    const stepLimit = Math.min(10, Math.max(1, Number(body.limit ?? 1) || 1));
 
     // Load pending contacts from DB (status = uploaded or invited but not confirmed)
     const result = await getPendingContacts(eventId);
@@ -63,45 +61,6 @@ export async function POST(request: NextRequest) {
           invite_message_template: eventRow.invite_message_template ?? null,
         }
       : undefined;
-
-    if (provider === 'cloud_api') {
-      const selected = contacts.slice(0, stepLimit);
-      const errors: Array<{ id: string; mobile: string; reason: string }> = [];
-      let sent = 0;
-      let failed = 0;
-
-      for (const contact of selected) {
-        const item: BulkSendItem = {
-          id: contact.id,
-          mobile: contact.mobile,
-          invitation_link: contact.invitation_link,
-        };
-        const sendResult = await sendInviteItem(item, ctx);
-        if (sendResult.success) {
-          sent++;
-          await markInviteSent(contact.id);
-        } else {
-          failed++;
-          errors.push({
-            id: contact.id,
-            mobile: contact.mobile,
-            reason: sendResult.error || 'Failed to send invite',
-          });
-        }
-      }
-
-      const remaining = Math.max(0, contacts.length - selected.length);
-      return apiSuccess({
-        mode: 'cloud_api',
-        total: contacts.length,
-        processed: selected.length,
-        sent,
-        failed,
-        remaining,
-        errors,
-        contacts: selected.map((contact) => ({ id: contact.id, mobile: contact.mobile })),
-      });
-    }
 
     startBulkSend(contacts, config, ctx);
 

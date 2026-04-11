@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "wa:send": "node scripts/send-whatsapp-web-batches.mjs",
     "lint": "next lint"
   },
   "dependencies": {

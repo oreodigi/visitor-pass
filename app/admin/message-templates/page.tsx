@@ -24,6 +24,8 @@ const PASS_VARS = [
   { key: 'pass',    label: '{{pass}}',    desc: 'Pass number' },
   { key: 'link',    label: '{{link}}',    desc: 'Pass link' },
   { key: 'support', label: '{{support}}', desc: 'Support contact' },
+  { key: 'terms',   label: '{{terms}}',   desc: 'Numbered pass terms' },
+  { key: 'terms_block', label: '{{terms_block}}', desc: 'Terms title plus numbered pass terms' },
 ];
 
 const INVITE_SAMPLE: Record<string, string> = {
@@ -43,6 +45,8 @@ const PASS_SAMPLE: Record<string, string> = {
   pass:    'MSME-042',
   link:    'https://ticket.rimacle.com/p/vp_abc123',
   support: '9876543210',
+  terms:   '1. This pass is non-transferable.\n2. Carry a valid photo ID.',
+  terms_block: '*Terms & Conditions*\n1. This pass is non-transferable.\n2. Carry a valid photo ID.',
 };
 
 type Tab = 'invite' | 'pass';

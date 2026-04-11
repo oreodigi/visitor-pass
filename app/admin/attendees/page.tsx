@@ -172,6 +172,7 @@ export default function AttendeesPage() {
         venue_name: ev.venue_name,
         support_contact_number: ev.support_contact_number ?? undefined,
         pass_message_template: ev.pass_message_template ?? null,
+        pass_terms_conditions: ev.pass_terms_conditions ?? null,
       });
     } else {
       setEventCtx(undefined);

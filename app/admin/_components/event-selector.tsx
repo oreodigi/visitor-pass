@@ -13,6 +13,7 @@ export interface EventSummary {
   support_contact_number: string | null;
   invite_message_template: string | null;
   pass_message_template: string | null;
+  pass_terms_conditions: string | null;
 }
 
 const LS_KEY = 'vp_admin_selected_event';
@@ -75,6 +76,7 @@ export function EventSelectorBar({ onChange }: Props) {
             support_contact_number: (e.support_contact_number as string) || null,
             invite_message_template: (e.invite_message_template as string) || null,
             pass_message_template: (e.pass_message_template as string) || null,
+            pass_terms_conditions: (e.pass_terms_conditions as string) || null,
           }));
           setEvents(list);
 

@@ -69,30 +69,11 @@ function randomBetween(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function fmtDate(d?: string): string {
-  if (!d) return '';
-  try {
-    return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch {
-    return d;
-  }
-}
-
 export async function sendInviteItem(contact: BulkSendItem, ctx?: EventContext): Promise<{ success: boolean; error?: string }> {
   const invitationLink = contact.invitation_link;
   return sendWaMessage(
     contact.mobile,
     buildInviteMessage(invitationLink, ctx),
-    {
-      event: ctx?.title || 'Our Event',
-      date: fmtDate(ctx?.event_date),
-      venue: ctx?.venue_name || '',
-      link: invitationLink,
-    },
   );
 }
 

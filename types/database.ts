@@ -23,6 +23,9 @@ export interface EventRow {
   support_contact_number: string | null;
   footer_note: string | null;
   logo_url: string | null;
+  invite_message_template: string | null;
+  pass_message_template: string | null;
+  pass_terms_conditions: string | null;
   status: EventStatus;
   created_at: string;
   updated_at: string;

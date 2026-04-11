@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import QRCode from 'qrcode';
 import { PassImageTemplate } from './pass-template';
 import type { PublicPassData } from '@/services/pass.service';
+import { normalizeTermsList } from '@/lib/pass-terms';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'edge';
@@ -163,7 +164,11 @@ export async function GET(request: NextRequest) {
   }
 
   const qrDataUrl = await generateQrSvgDataUrl(result.data.pass_url);
-  const imageHeight = result.data.event.pass_terms_conditions ? 1000 : 860;
+  const terms = normalizeTermsList(result.data.event.pass_terms_conditions);
+  const estimatedTermLines = terms.reduce((sum, term) => sum + Math.max(1, Math.ceil(term.length / 72)), 0);
+  const imageHeight = terms.length > 0
+    ? Math.min(1800, 900 + estimatedTermLines * 18 + terms.length * 8)
+    : 860;
   const response = new ImageResponse(
     <PassImageTemplate data={result.data} qrDataUrl={qrDataUrl} imageHeight={imageHeight} />,
     {

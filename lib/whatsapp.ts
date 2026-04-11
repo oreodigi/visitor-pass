@@ -3,6 +3,7 @@
 // Custom templates use {{variable}} placeholders.
 
 import { normalizePublicUrl } from './app-url';
+import { normalizeTermsList } from './pass-terms';
 
 export interface EventContext {
   title?: string;
@@ -11,6 +12,7 @@ export interface EventContext {
   end_time?: string;
   venue_name?: string;
   support_contact_number?: string;
+  pass_terms_conditions?: string | null;
   // Custom templates (loaded from events table)
   invite_message_template?: string | null;
   pass_message_template?: string | null;
@@ -38,6 +40,12 @@ function fmtTime(start?: string, end?: string): string {
 
 function toInternational(mobile: string): string {
   return `91${mobile}`;
+}
+
+export function formatTermsForWhatsApp(value: string | null | undefined): string {
+  return normalizeTermsList(value)
+    .map((term, index) => `${index + 1}. ${term}`)
+    .join('\n');
 }
 
 // ── Template variable renderer ─────────────────────────────
@@ -101,6 +109,8 @@ export const DEFAULT_PASS_TEMPLATE = [
   'Please show this QR pass at entry:',
   '{{link}}',
   '',
+  '{{terms_block}}',
+  '',
   'For assistance: {{support}}',
 ].join('\n');
 
@@ -119,10 +129,16 @@ export function buildPassMessage(
     seat:    seatNumber,
     link:    passLink,
     support: ctx?.support_contact_number || '',
+    terms:   formatTermsForWhatsApp(ctx?.pass_terms_conditions),
   };
+  vars.terms_block = vars.terms ? `*Terms & Conditions*\n${vars.terms}` : '';
 
   const template = ctx?.pass_message_template?.trim() || DEFAULT_PASS_TEMPLATE;
-  return renderTemplate(template, vars);
+  const rendered = renderTemplate(template, vars);
+  if (vars.terms && !template.includes('{{terms}}') && !template.includes('{{terms_block}}')) {
+    return `${rendered.trim()}\n\n${vars.terms_block}`;
+  }
+  return rendered;
 }
 
 // ── WhatsApp Web link builders ─────────────────────────────

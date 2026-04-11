@@ -50,6 +50,9 @@ export interface CreateEventPayload {
   max_visitors?: number | null;
   vip_seats?: number;
   partners?: Array<{ name: string; logo_url: string | null }>;
+  invite_message_template?: string | null;
+  pass_message_template?: string | null;
+  pass_terms_conditions?: string | null;
   pass_style?: PassStyleConfig | null;
 }
 
@@ -75,6 +78,9 @@ export interface EventResponse {
   max_visitors: number | null;
   vip_seats: number;
   partners: Array<{ name: string; logo_url: string | null }>;
+  invite_message_template: string | null;
+  pass_message_template: string | null;
+  pass_terms_conditions: string | null;
   pass_style?: PassStyleConfig | null;
   attendee_count?: number;
   checked_in_count?: number;

@@ -17,7 +17,7 @@ export async function GET(_request: NextRequest) {
   }
 }
 
-// POST /api/whatsapp - initialize WhatsApp Web or verify Cloud API readiness
+// POST /api/whatsapp - initialize WhatsApp Web
 export async function POST(_request: NextRequest) {
   try {
     await requireRole('admin');
@@ -26,7 +26,7 @@ export async function POST(_request: NextRequest) {
     initWaClient();
     const status = getWaStatus();
     return apiSuccess({
-      message: status.provider === 'cloud_api' ? 'WhatsApp Cloud API is ready' : 'Initializing WhatsApp client...',
+      message: 'Initializing WhatsApp client...',
       status,
     });
   } catch (err) {
@@ -35,7 +35,7 @@ export async function POST(_request: NextRequest) {
   }
 }
 
-// DELETE /api/whatsapp - disconnect WhatsApp Web or refresh Cloud API state
+// DELETE /api/whatsapp - disconnect WhatsApp Web
 export async function DELETE(_request: NextRequest) {
   try {
     await requireRole('admin');

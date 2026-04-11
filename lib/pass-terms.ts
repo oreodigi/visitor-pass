@@ -23,7 +23,12 @@ export function normalizeTermsList(value: string | null | undefined): string[] {
       : sentenceSplit;
 
   return sourceLines
-    .map((line) => line.replace(/^(?:\d+[\).]|[-*])\s*/, '').trim())
+    .map((line) => {
+      let cleaned = line.replace(/^(?:\d+[\).]\s*|[-*]\s+)/, '').trim();
+      const markdownHeading = cleaned.match(/^\*([^*]+)\*\s*(:?)\s*$/);
+      if (markdownHeading) cleaned = `${markdownHeading[1]}${markdownHeading[2] || ''}`;
+      return cleaned.replace(/^\*+|\*+$/g, '').trim();
+    })
     .filter(Boolean);
 }
 
