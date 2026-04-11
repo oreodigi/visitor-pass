@@ -54,7 +54,7 @@ function formatMobile(mobile: string): string {
   return mobile.length === 10 ? `${mobile.slice(0, 5)} ${mobile.slice(5)}` : mobile;
 }
 
-export default function PassCard({ app, event, attendee, qrDataUrl }: PassCardProps) {
+export default function PassCard({ event, attendee, qrDataUrl }: PassCardProps) {
   const displayName = attendee.name || 'Participant';
   const isCheckedIn = !!attendee.checked_in_at;
   const terms = normalizeTermsList(event.pass_terms_conditions);
@@ -65,19 +65,16 @@ export default function PassCard({ app, event, attendee, qrDataUrl }: PassCardPr
 
         {/* ── Header Band ────────────────────────────────── */}
         <div className="bg-emerald-800 px-5 py-4">
-          {app.logo_url && (
+          {event.logo_url && (
             <div className="mb-3 flex justify-center">
               <img
-                src={app.logo_url}
-                alt={`${app.name} logo`}
+                src={event.logo_url}
+                alt="Event logo"
                 className="h-14 w-auto max-w-[180px] object-contain rounded"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             </div>
           )}
-          <p className="mb-1 text-center text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">
-            {app.name || 'Visitor Pass'}
-          </p>
           <h1 className="text-center text-base font-bold text-white leading-tight">{event.title}</h1>
         </div>
 

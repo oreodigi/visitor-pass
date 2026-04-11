@@ -31,11 +31,6 @@ interface EventData {
   pass_style: PassStyleConfig;
 }
 
-interface AppBrand {
-  name: string;
-  logo_url: string | null;
-}
-
 type Mode = 'list' | 'edit';
 
 const EMPTY: EventData = {
@@ -44,11 +39,6 @@ const EMPTY: EventData = {
   organizer_contact_number: '', support_contact_number: '',
   footer_note: '', logo_url: null, status: 'draft',
   max_visitors: null, vip_seats: 0, partners: [], pass_style: DEFAULT_PASS_STYLE,
-};
-
-const DEFAULT_APP_BRAND: AppBrand = {
-  name: 'Visitor Pass',
-  logo_url: null,
 };
 
 const PASS_STYLE_PRESETS: Array<{ name: string; value: PassStyleConfig }> = [
@@ -232,7 +222,7 @@ function PassColorField({
   );
 }
 
-function PassPreviewCard({ event, appBrand }: { event: EventData; appBrand: AppBrand }) {
+function PassPreviewCard({ event }: { event: EventData }) {
   const passStyle = event.pass_style ?? DEFAULT_PASS_STYLE;
   return (
     <div className="mx-auto w-full max-w-[230px]">
@@ -243,19 +233,16 @@ function PassPreviewCard({ event, appBrand }: { event: EventData; appBrand: AppB
             background: `linear-gradient(135deg, ${passStyle.primary_color}, ${passStyle.secondary_color})`,
           }}
         >
-          {appBrand.logo_url && (
+          {event.logo_url && (
             <div className="mb-2 flex justify-center">
               <img
-                src={appBrand.logo_url}
-                alt={`${appBrand.name} logo`}
+                src={event.logo_url}
+                alt="Event logo"
                 className="h-7 w-auto max-w-[100px] rounded object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
               />
             </div>
           )}
-          <p className="mb-1 text-center text-[8px] font-bold uppercase tracking-[0.22em] text-white/75">
-            {appBrand.name}
-          </p>
           <p className="text-center text-[11px] font-bold leading-tight text-white">
             {event.title || <span className="font-normal italic opacity-50">Event Title</span>}
           </p>
@@ -670,13 +657,11 @@ function PartnerRow({
 
 function EditView({
   event, saving, uploading, uploadingPartnerIdx,
-  appBrand,
   onChange, onSubmit, onLogoUpload,
   onAddPartner, onRemovePartner, onPartnerNameChange, onPartnerLogoUpload,
   onBack, onDeleteClick, message, onDismissMessage,
 }: {
   event: EventData; saving: boolean; uploading: boolean; uploadingPartnerIdx: number | null;
-  appBrand: AppBrand;
   onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onSubmit: (e: FormEvent) => void;
   onLogoUpload: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -915,16 +900,13 @@ function EditView({
 
                 {/* Header band */}
                 <div className="bg-emerald-800 px-3 py-3">
-                  {appBrand.logo_url && (
+                  {event.logo_url && (
                     <div className="mb-2 flex justify-center">
-                      <img src={appBrand.logo_url} alt={`${appBrand.name} logo`}
+                      <img src={event.logo_url} alt="Event logo"
                         className="h-7 w-auto max-w-[100px] object-contain rounded"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
                   )}
-                  <p className="mb-1 text-center text-[8px] font-bold uppercase tracking-[0.22em] text-white/75">
-                    {appBrand.name}
-                  </p>
                   <p className="text-center text-[11px] font-bold text-white leading-tight">
                     {event.title || <span className="italic font-normal opacity-50">Event Title</span>}
                   </p>
@@ -1072,14 +1054,12 @@ function EditView({
 
 function RedesignedEditView({
   event, saving, uploading, uploadingPartnerIdx,
-  appBrand,
   onChange, onSubmit, onLogoUpload,
   onPassStyleChange,
   onAddPartner, onRemovePartner, onPartnerNameChange, onPartnerLogoUpload,
   onBack, onDeleteClick, message, onDismissMessage,
 }: {
   event: EventData; saving: boolean; uploading: boolean; uploadingPartnerIdx: number | null;
-  appBrand: AppBrand;
   onChange: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onSubmit: (e: FormEvent) => void;
   onLogoUpload: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -1195,7 +1175,7 @@ function RedesignedEditView({
 
           <div className="lg:hidden">
             <SectionCard eyebrow="Live Preview" title="Mobile pass preview" sub="Keep the attendee pass polished while you update details.">
-              <PassPreviewCard event={event} appBrand={appBrand} />
+              <PassPreviewCard event={event} />
             </SectionCard>
           </div>
 
@@ -1393,7 +1373,7 @@ function RedesignedEditView({
         <aside className="hidden w-80 shrink-0 xl:block">
           <div className="sticky top-[110px] space-y-5">
             <SectionCard eyebrow="Pass Preview" title="Live attendee pass" sub="Every logo, footer, and venue change is reflected here instantly.">
-              <PassPreviewCard event={event} appBrand={appBrand} />
+              <PassPreviewCard event={event} />
             </SectionCard>
 
             <SectionCard eyebrow="Operator Notes" title="Pre-launch checklist" sub="Use this to catch gaps before the event team starts sending invites.">
@@ -1427,27 +1407,10 @@ export default function EventsPage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<EventData | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [appBrand, setAppBrand] = useState<AppBrand>(DEFAULT_APP_BRAND);
 
   useEffect(() => {
     loadEvents();
-    loadAppBrand();
   }, []);
-
-  async function loadAppBrand() {
-    try {
-      const res = await fetch('/api/settings');
-      const data = await res.json();
-      if (data.success) {
-        setAppBrand({
-          name: data.data?.app_name?.trim() || DEFAULT_APP_BRAND.name,
-          logo_url: data.data?.app_logo_url?.trim() || null,
-        });
-      }
-    } catch {
-      setAppBrand(DEFAULT_APP_BRAND);
-    }
-  }
 
   async function loadEvents() {
     try {
@@ -1718,7 +1681,6 @@ export default function EventsPage() {
           saving={saving}
           uploading={uploading}
           uploadingPartnerIdx={uploadingPartnerIdx}
-          appBrand={appBrand}
           onChange={handleChange}
           onSubmit={handleSubmit}
           onLogoUpload={handleLogoUpload}

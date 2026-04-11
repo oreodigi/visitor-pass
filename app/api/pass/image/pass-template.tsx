@@ -67,17 +67,14 @@ export function PassImageTemplate({ data, qrDataUrl, imageHeight, partners }: Pr
             alignItems: 'center',
           }}
         >
-          {data.app.logo_url && (
+          {event.logo_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={data.app.logo_url}
+              src={event.logo_url}
               alt=""
               style={{ height: '52px', maxWidth: '180px', objectFit: 'contain', marginBottom: '12px', borderRadius: '6px' }}
             />
           )}
-          <div style={{ display: 'flex', color: 'rgba(255,255,255,0.82)', fontSize: '11px', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', textAlign: 'center', marginBottom: '6px' }}>
-            {data.app.name || 'Visitor Pass'}
-          </div>
           <div style={{ display: 'flex', color: '#ffffff', fontSize: '18px', fontWeight: 700, textAlign: 'center', lineHeight: 1.3 }}>
             {event.title}
           </div>

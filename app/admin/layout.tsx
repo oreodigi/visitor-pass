@@ -16,6 +16,16 @@ type NavSection = {
   items: NavItemConfig[];
 };
 
+type AppBrand = {
+  name: string;
+  logoUrl: string | null;
+};
+
+const DEFAULT_APP_BRAND: AppBrand = {
+  name: 'Visitor Pass',
+  logoUrl: null,
+};
+
 const NAV: NavSection[] = [
   {
     section: 'Overview',
@@ -170,16 +180,25 @@ function findCurrentItem(pathname: string) {
   return NAV.flatMap((group) => group.items).find((item) => isActivePath(pathname, item.href, item.exact));
 }
 
-function BrandBlock({ compact = false }: { compact?: boolean }) {
+function BrandBlock({ compact = false, brand = DEFAULT_APP_BRAND }: { compact?: boolean; brand?: AppBrand }) {
   return (
     <div className={`flex items-center gap-3 ${compact ? '' : 'h-16 border-b border-slate-800 px-4'}`}>
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-violet-600 to-fuchsia-600 shadow-soft">
-        <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
-        </svg>
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-soft ring-1 ring-white/10">
+        {brand.logoUrl ? (
+          <img
+            src={brand.logoUrl}
+            alt={`${brand.name} logo`}
+            className="h-full w-full object-contain p-1.5"
+            onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = 'none'; }}
+          />
+        ) : (
+          <svg className="h-4 w-4 text-brand-700" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+          </svg>
+        )}
       </div>
       <div className="min-w-0">
-        <div className="truncate text-sm font-bold leading-tight text-white">Visitor Pass</div>
+        <div className="truncate text-sm font-bold leading-tight text-white">{brand.name}</div>
         <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-brand-300">
           Admin Control
         </div>
@@ -309,10 +328,29 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [brand, setBrand] = useState<AppBrand>(DEFAULT_APP_BRAND);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    async function loadBrand() {
+      try {
+        const res = await fetch('/api/settings');
+        const data = await res.json();
+        if (!data.success) return;
+        setBrand({
+          name: data.data?.app_name?.trim() || DEFAULT_APP_BRAND.name,
+          logoUrl: data.data?.app_logo_url?.trim() || null,
+        });
+      } catch {
+        setBrand(DEFAULT_APP_BRAND);
+      }
+    }
+
+    loadBrand();
+  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return undefined;
@@ -349,7 +387,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="min-h-screen bg-slate-100">
       <aside className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col lg:border-r lg:border-slate-800 lg:bg-slate-950">
-        <BrandBlock />
+        <BrandBlock brand={brand} />
         <SidebarNav pathname={pathname} />
         <div className="border-t border-slate-800 p-3">{logoutBtn}</div>
       </aside>
@@ -377,10 +415,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <div className="truncate text-xs text-slate-500">Manage events, invites, staff and check-ins</div>
               </div>
             </div>
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 via-violet-600 to-fuchsia-600 text-white shadow-soft">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
-              </svg>
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-white text-brand-700 shadow-soft ring-1 ring-slate-200">
+              {brand.logoUrl ? (
+                <img
+                  src={brand.logoUrl}
+                  alt={`${brand.name} logo`}
+                  className="h-full w-full object-contain p-1.5"
+                  onError={(event) => { (event.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                />
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
+                </svg>
+              )}
             </div>
           </div>
         </header>
@@ -393,7 +440,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             >
               <div className="border-b border-slate-800 px-4 py-5">
                 <div className="flex items-start justify-between gap-4">
-                  <BrandBlock compact />
+                  <BrandBlock compact brand={brand} />
                   <button
                     onClick={() => setMobileOpen(false)}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-300 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
