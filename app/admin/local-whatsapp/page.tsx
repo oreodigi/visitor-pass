@@ -116,7 +116,7 @@ export default function LocalWhatsAppRunnerPage() {
 
           <div className="mt-4 grid gap-3 md:grid-cols-2">
             <InlineStatus tone="emerald">Operator instruction: download the file, double-click it, scan WhatsApp QR if shown.</InlineStatus>
-            <InlineStatus tone="amber">First-time PC only: if Node.js is missing, the file opens the official install page automatically.</InlineStatus>
+            <InlineStatus tone="amber">First-time PC only: if the runtime is missing, the file installs it automatically where Windows allows it.</InlineStatus>
           </div>
         </SurfaceCard>
       </div>
