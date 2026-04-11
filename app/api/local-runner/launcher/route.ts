@@ -88,6 +88,7 @@ function cmdScript(input: {
     '>> ".env" echo BATCH_SIZE=15',
     '>> ".env" echo BATCH_BREAK=300',
     '>> ".env" echo COUNTRY_CODE=91',
+    '>> ".env" echo LIMIT=500',
     '',
     'if not exist "node_modules" (',
     '  echo First-time setup: installing sender engine...',

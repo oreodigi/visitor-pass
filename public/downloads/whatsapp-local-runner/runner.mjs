@@ -15,7 +15,7 @@ const DEFAULTS = {
   batchSize: 15,
   batchBreak: 300,
   countryCode: '91',
-  limit: 100,
+  limit: 500,
   dryRun: false,
 };
 
