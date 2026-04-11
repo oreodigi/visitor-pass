@@ -2,9 +2,18 @@
 
 This runner sends event invitations or generated passes from a local PC using WhatsApp Web.
 
-It does not need Supabase keys. It connects to the live app through `APP_URL` and `RUNNER_TOKEN`.
+Best option: open the WhatsApp Runner page in the app and download the ready-made sender file for the event. Then double-click it.
 
-## One-time setup
+It does not need Supabase keys. The ready-made sender file connects to the live app with an event-locked token.
+
+## Plug and play setup
+
+1. Download the event sender file from the admin or manager WhatsApp Runner page.
+2. Double-click it and scan the WhatsApp QR if shown.
+
+If Node.js is missing, the sender opens the official Node.js download page. Install Node.js LTS once, then double-click the sender again.
+
+## Manual setup
 
 1. Install Node.js 20 LTS from `https://nodejs.org`.
 2. Download these files into one folder:

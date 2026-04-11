@@ -5,35 +5,25 @@ import { normalizePublicUrl } from '@/lib/app-url';
 import { apiSuccess, apiError } from '@/lib/utils';
 import { createServerClient } from '@/lib/supabase/server';
 import { buildInviteMessage, buildPassMessage, type EventContext } from '@/lib/whatsapp';
+import { authorizeLocalRunner } from '@/lib/local-runner-auth';
 
 type RunnerMode = 'invites' | 'passes';
-
-function getRunnerToken() {
-  return process.env.WHATSAPP_RUNNER_TOKEN || process.env.LOCAL_WHATSAPP_RUNNER_TOKEN || '';
-}
-
-function isAuthorized(request: NextRequest) {
-  const expected = getRunnerToken();
-  if (!expected) return false;
-  const header = request.headers.get('authorization') || '';
-  return header === `Bearer ${expected}`;
-}
 
 function parseMode(value: string | null): RunnerMode {
   return value === 'passes' ? 'passes' : 'invites';
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return apiError('Unauthorized local runner request', 401, 'RUNNER_UNAUTHORIZED');
-  }
-
   const { searchParams, origin } = request.nextUrl;
   const eventId = searchParams.get('event_id');
   const mode = parseMode(searchParams.get('mode'));
   const limit = Math.min(500, Math.max(1, Number(searchParams.get('limit') || 100) || 100));
 
   if (!eventId) return apiError('event_id is required', 400);
+  const runnerAuth = await authorizeLocalRunner(request, eventId);
+  if (!runnerAuth) {
+    return apiError('Unauthorized local runner request', 401, 'RUNNER_UNAUTHORIZED');
+  }
 
   const db = createServerClient();
   const { data: eventRow, error: eventError } = await db

@@ -202,7 +202,7 @@ async function main() {
           await client.sendMessage(chatId, row.message);
           await apiFetch(args, '/api/local-runner/mark', {
             method: 'POST',
-            body: { id: row.id, mode: args.mode, status: 'sent' },
+            body: { id: row.id, event_id: args.eventId, mode: args.mode, status: 'sent' },
           });
         }
         sent += 1;
@@ -214,7 +214,7 @@ async function main() {
         if (!args.dryRun) {
           await apiFetch(args, '/api/local-runner/mark', {
             method: 'POST',
-            body: { id: row.id, mode: args.mode, status: 'failed', error: reason },
+            body: { id: row.id, event_id: args.eventId, mode: args.mode, status: 'failed', error: reason },
           }).catch(() => undefined);
         }
       }

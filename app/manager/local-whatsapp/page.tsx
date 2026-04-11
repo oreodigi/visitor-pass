@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { AdminHero, InlineStatus, MetricTile, SurfaceCard } from '@/app/admin/_components/admin-surface';
 
-const DOWNLOAD_BASE = '/downloads/whatsapp-local-runner';
-
+type RunnerMode = 'invites' | 'passes';
 type AssignedEvent = {
   id: string;
   title: string;
@@ -13,63 +12,43 @@ type AssignedEvent = {
   venue_name: string;
 };
 
-function CopyBox({ label, value }: { label: string; value: string }) {
-  const [copied, setCopied] = useState(false);
+function ModeButton({
+  active,
+  title,
+  note,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  note: string;
+  onClick: () => void;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">{label}</p>
-        <button
-          type="button"
-          onClick={async () => {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 1400);
-          }}
-          className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-        >
-          {copied ? 'Copied' : 'Copy'}
-        </button>
-      </div>
-      <pre className="overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-950 p-3 text-xs leading-relaxed text-slate-100">{value}</pre>
-    </div>
-  );
-}
-
-function DownloadLink({ href, title, note }: { href: string; title: string; note: string }) {
-  return (
-    <a
-      href={href}
-      download
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-[24px] border p-4 text-left transition ${
+        active
+          ? 'border-slate-950 bg-slate-950 text-white shadow-lg'
+          : 'border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:shadow-md'
+      }`}
     >
-      <p className="text-sm font-bold text-slate-950">{title}</p>
-      <p className="mt-1 text-sm leading-relaxed text-slate-500">{note}</p>
-    </a>
+      <span className="block text-base font-black">{title}</span>
+      <span className={`mt-1 block text-sm leading-relaxed ${active ? 'text-slate-300' : 'text-slate-500'}`}>{note}</span>
+    </button>
   );
 }
 
 export default function ManagerLocalWhatsAppPage() {
   const [events, setEvents] = useState<AssignedEvent[]>([]);
   const [selectedId, setSelectedId] = useState('');
-  const [appUrl, setAppUrl] = useState('https://ticket.rimacle.com');
+  const [mode, setMode] = useState<RunnerMode>('invites');
   const selected = events.find((event) => event.id === selectedId) ?? events[0] ?? null;
-  const eventId = selected?.id || 'PASTE_EVENT_ID';
-  const envText = [
-    `APP_URL=${appUrl}`,
-    'RUNNER_TOKEN=paste-token-from-admin',
-    `EVENT_ID=${eventId}`,
-    'MODE=invites',
-    'MIN_DELAY=45',
-    'MAX_DELAY=90',
-    'BATCH_SIZE=15',
-    'BATCH_BREAK=300',
-    'COUNTRY_CODE=91',
-  ].join('\n');
+  const downloadUrl = selected
+    ? `/api/local-runner/launcher?event_id=${encodeURIComponent(selected.id)}&mode=${mode}`
+    : '';
 
   useEffect(() => {
-    if (typeof window !== 'undefined') setAppUrl(window.location.origin);
-
     async function loadAssignments() {
       const res = await fetch('/api/manager/dashboard');
       const json = await res.json();
@@ -85,76 +64,82 @@ export default function ManagerLocalWhatsAppPage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-indigo-50">
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-5 lg:px-6 lg:py-8">
         <AdminHero
-          eyebrow="Local WhatsApp Runner"
-          title="Send assigned event invites from your local WhatsApp"
-          description="Download the runner, paste the admin-provided token, select your assigned event, and run controlled WhatsApp Web batches from this PC."
+          eyebrow="Plug and Play WhatsApp Sender"
+          title="Download one file. Double-click. Send bulk WhatsApp."
+          description="No commands and no setup screen. This file is already configured for your assigned event."
         >
           <div className="grid gap-3 sm:grid-cols-3">
-            <MetricTile label="Sender Type" value="WhatsApp Web" note="Uses your phone session" tone="emerald" variant="dark" />
-            <MetricTile label="Access" value="Manager" note="Assigned events only" tone="sky" variant="dark" />
-            <MetricTile label="Selected Event" value={selected ? selected.title : 'No event'} note={selected ? selected.id : 'Ask admin to assign event'} tone="slate" variant="dark" />
+            <MetricTile label="Step 1" value="Download" note="Sender is pre-configured" tone="sky" variant="dark" />
+            <MetricTile label="Step 2" value="Double-click" note="Scan WhatsApp QR if shown" tone="emerald" variant="dark" />
+            <MetricTile label="Access" value="Assigned" note="Only your assigned event" tone="slate" variant="dark" />
           </div>
         </AdminHero>
 
-        <SurfaceCard eyebrow="Assigned Event" title="Choose event before copying config" description="Managers only see events assigned by the admin.">
+        <SurfaceCard
+          eyebrow="Your Sender"
+          title="Choose what you want to send"
+          description="Pick invitations or generated passes, then download the sender file."
+        >
           {events.length === 0 ? (
-            <InlineStatus tone="amber">No event is assigned to this manager. Ask the admin to assign an event first.</InlineStatus>
+            <InlineStatus tone="amber">No event is assigned to you. Ask the admin to assign an event first.</InlineStatus>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {events.map((event) => (
-                <button
-                  key={event.id}
-                  onClick={() => setSelectedId(event.id)}
-                  className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${
-                    selectedId === event.id
-                      ? 'border-slate-950 bg-slate-950 text-white'
-                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                  }`}
-                >
-                  {event.title}
-                </button>
-              ))}
+            <div className="space-y-5">
+              {events.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {events.map((event) => (
+                    <button
+                      key={event.id}
+                      onClick={() => setSelectedId(event.id)}
+                      className={`rounded-2xl border px-4 py-2 text-sm font-bold transition ${
+                        selectedId === event.id
+                          ? 'border-slate-950 bg-slate-950 text-white'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                      }`}
+                    >
+                      {event.title}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <ModeButton
+                  active={mode === 'invites'}
+                  title="Send Invitations"
+                  note="For contacts who still need the invitation link."
+                  onClick={() => setMode('invites')}
+                />
+                <ModeButton
+                  active={mode === 'passes'}
+                  title="Send Generated Passes"
+                  note="For confirmed visitors whose passes are ready."
+                  onClick={() => setMode('passes')}
+                />
+              </div>
+
+              <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.24em] text-slate-400">Ready Sender</p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">{selected?.title}</h2>
+                    <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                      Download, double-click, scan WhatsApp QR if shown, and keep the window open.
+                    </p>
+                  </div>
+                  <a
+                    href={downloadUrl}
+                    download
+                    className="inline-flex items-center justify-center rounded-2xl bg-emerald-600 px-6 py-4 text-sm font-black text-white shadow-lg transition hover:bg-emerald-700"
+                  >
+                    Download WhatsApp Sender
+                  </a>
+                </div>
+              </div>
+
+              <InlineStatus tone="emerald">This is the only instruction needed for operators: download the file and double-click it.</InlineStatus>
             </div>
           )}
         </SurfaceCard>
-
-        <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-          <SurfaceCard eyebrow="Download" title="Runner files" description="Use the installer for the fastest setup, or download files manually.">
-            <div className="space-y-3">
-              <a
-                href={`${DOWNLOAD_BASE}/install-whatsapp-runner.ps1`}
-                download
-                className="flex items-center justify-between gap-4 rounded-[24px] bg-slate-950 px-5 py-4 text-white shadow-lg transition hover:bg-slate-800"
-              >
-                <span>
-                  <span className="block text-sm font-bold">Download Windows Installer</span>
-                  <span className="mt-1 block text-sm text-slate-300">Downloads runner files into your user folder.</span>
-                </span>
-                <span className="rounded-xl bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em]">PS1</span>
-              </a>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <DownloadLink href={`${DOWNLOAD_BASE}/runner.mjs`} title="runner.mjs" note="Main sender script." />
-                <DownloadLink href={`${DOWNLOAD_BASE}/package.json`} title="package.json" note="Dependencies and commands." />
-                <DownloadLink href={`${DOWNLOAD_BASE}/env.example`} title="env.example" note="Copy to .env and fill values." />
-                <DownloadLink href={`${DOWNLOAD_BASE}/start-windows.bat`} title="start-windows.bat" note="Double-click launcher." />
-              </div>
-            </div>
-          </SurfaceCard>
-
-          <div className="space-y-6">
-            <SurfaceCard eyebrow="Config" title="Copy this .env template" description="Paste this into the runner .env file after your admin gives you the token.">
-              <CopyBox label=".env" value={envText} />
-            </SurfaceCard>
-
-            <SurfaceCard eyebrow="Use" title="Run commands" description="Use passes mode after attendee passes are generated.">
-              <div className="grid gap-3">
-                <CopyBox label="Send invites" value={`npm start -- --event-id ${eventId} --mode invites`} />
-                <CopyBox label="Send generated passes" value={`npm start -- --event-id ${eventId} --mode passes`} />
-                <CopyBox label="Test first" value={`npm start -- --event-id ${eventId} --mode invites --dry-run`} />
-              </div>
-            </SurfaceCard>
-          </div>
-        </div>
       </div>
     </div>
   );
