@@ -17,6 +17,7 @@ interface Attendee {
   qr_token: string | null;
   pass_generated_at: string | null;
   whatsapp_status: string;
+  whatsapp_sent_marked_at?: string | null;
   checked_in_at: string | null;
   created_at: string;
 }
@@ -38,16 +39,16 @@ interface EditForm {
 
 function ActionMenu({
   attendee,
-  eventCtx,
   onEdit,
   onDelete,
   onRegenerate,
+  onSend,
 }: {
   attendee: Attendee;
-  eventCtx: EventContext | undefined;
   onEdit: (attendee: Attendee) => void;
   onDelete: (attendee: Attendee) => void;
   onRegenerate: (attendee: Attendee) => void;
+  onSend: (attendee: Attendee) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -72,8 +73,7 @@ function ActionMenu({
           {attendee.pass_url && attendee.seat_number ? (
             <button
               onClick={() => {
-                const link = buildPassWhatsAppLink(attendee.mobile, attendee.name || '', attendee.pass_url!, attendee.seat_number!, eventCtx);
-                window.open(link, '_blank', 'noopener,noreferrer');
+                onSend(attendee);
                 setOpen(false);
               }}
               className={itemCls}
@@ -294,6 +294,29 @@ export default function AttendeesPage() {
     }
   }
 
+  async function markPassSent(attendee: Attendee) {
+    try {
+      const res = await fetch('/api/attendees', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: attendee.id, action: 'mark_pass_sent' }),
+      });
+      const response = await res.json();
+      if (!response.success) {
+        setMessage({ type: 'error', text: response.error?.message || 'Pass opened, but status was not updated' });
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Pass opened, but status was not updated' });
+    }
+  }
+
+  function sendPass(attendee: Attendee) {
+    if (!attendee.pass_url || !attendee.seat_number) return;
+    const link = buildPassWhatsAppLink(attendee.mobile, attendee.name || '', attendee.pass_url, attendee.seat_number, eventCtx);
+    window.open(link, '_blank', 'noopener,noreferrer');
+    markPassSent(attendee);
+  }
+
   async function bulkSendPasses() {
     const eligible = selectedAttendees.filter((attendee) => attendee.pass_url && attendee.seat_number);
     if (eligible.length === 0) {
@@ -303,8 +326,7 @@ export default function AttendeesPage() {
     setBulkLoading(true);
     for (let i = 0; i < eligible.length; i += 1) {
       const attendee = eligible[i];
-      const link = buildPassWhatsAppLink(attendee.mobile, attendee.name || '', attendee.pass_url!, attendee.seat_number!, eventCtx);
-      window.open(link, '_blank', 'noopener,noreferrer');
+      sendPass(attendee);
       if (i < eligible.length - 1) await new Promise((resolve) => setTimeout(resolve, 400));
     }
     setMessage({ type: 'success', text: `Opened WhatsApp for ${eligible.length} attendee(s)` });
@@ -432,7 +454,7 @@ export default function AttendeesPage() {
                               <td className="px-4 py-3">{attendee.seat_number ? <InlineStatus tone="slate">{attendee.seat_number}</InlineStatus> : <span className="text-sm text-slate-300">-</span>}</td>
                               <td className="px-4 py-3">{attendee.pass_number ? <div className="flex items-center gap-2"><span className="font-mono text-sm font-semibold text-indigo-700">{attendee.pass_number}</span><a href={attendee.pass_url || `/p/${attendee.qr_token}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-slate-500 underline">Open</a></div> : <span className="text-sm text-slate-300">Generating...</span>}</td>
                               <td className="px-4 py-3">{attendee.checked_in_at ? <InlineStatus tone="emerald">Checked in</InlineStatus> : <InlineStatus tone="indigo">Pass ready</InlineStatus>}</td>
-                              <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-2">{attendee.pass_url && attendee.seat_number ? <button onClick={() => { const link = buildPassWhatsAppLink(attendee.mobile, attendee.name || '', attendee.pass_url!, attendee.seat_number!, eventCtx); window.open(link, '_blank', 'noopener,noreferrer'); }} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">Send Pass</button> : null}<ActionMenu attendee={attendee} eventCtx={eventCtx} onEdit={openEdit} onDelete={handleDelete} onRegenerate={handleRegenerate} /></div></td>
+                              <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-2">{attendee.pass_url && attendee.seat_number ? <button onClick={() => sendPass(attendee)} className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100">Send Pass</button> : null}<ActionMenu attendee={attendee} onEdit={openEdit} onDelete={handleDelete} onRegenerate={handleRegenerate} onSend={sendPass} /></div></td>
                             </tr>
                           );
                         })}
@@ -457,7 +479,7 @@ export default function AttendeesPage() {
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Seat</p><p className="mt-2 text-sm text-slate-700">{attendee.seat_number || 'Not assigned'}</p></div>
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 sm:col-span-2"><p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Pass</p><p className="mt-2 text-sm text-slate-700">{attendee.pass_number || 'Generating...'}</p>{attendee.business_name ? <p className="mt-1 text-sm text-slate-500">{attendee.business_name}</p> : null}</div>
                               </div>
-                              <div className="mt-4 grid gap-2 sm:grid-cols-2">{attendee.pass_url && attendee.seat_number ? <button onClick={() => { const link = buildPassWhatsAppLink(attendee.mobile, attendee.name || '', attendee.pass_url!, attendee.seat_number!, eventCtx); window.open(link, '_blank', 'noopener,noreferrer'); }} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Send Pass</button> : null}<ActionMenu attendee={attendee} eventCtx={eventCtx} onEdit={openEdit} onDelete={handleDelete} onRegenerate={handleRegenerate} /></div>
+                              <div className="mt-4 grid gap-2 sm:grid-cols-2">{attendee.pass_url && attendee.seat_number ? <button onClick={() => sendPass(attendee)} className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">Send Pass</button> : null}<ActionMenu attendee={attendee} onEdit={openEdit} onDelete={handleDelete} onRegenerate={handleRegenerate} onSend={sendPass} /></div>
                             </div>
                           </div>
                         </div>

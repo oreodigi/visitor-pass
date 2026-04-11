@@ -7,6 +7,7 @@ import {
   listContacts,
   getContactById,
   markInviteSent,
+  markContactPassSent,
   deleteContacts,
   bulkMarkInvited,
 } from '@/services/contact.service';
@@ -51,10 +52,16 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { id, action } = body;
 
-    if (!id) return apiError('Contact ID is required', 400);
-
     if (action === 'mark_invited') {
+      if (!id) return apiError('Contact ID is required', 400);
       const result = await markInviteSent(id);
+      if (!result.success) return apiError(result.error || 'Failed to update', 400);
+      return apiSuccess({ updated: true });
+    }
+
+    if (action === 'mark_pass_sent') {
+      if (!id) return apiError('Contact ID is required', 400);
+      const result = await markContactPassSent(id);
       if (!result.success) return apiError(result.error || 'Failed to update', 400);
       return apiSuccess({ updated: true });
     }

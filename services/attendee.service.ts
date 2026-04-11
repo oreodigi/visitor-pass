@@ -134,6 +134,78 @@ export async function updateAttendee(
   return { data: data as AttendeeResponse };
 }
 
+export async function markAttendeePassSent(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!id) return { success: false, error: 'Attendee ID is required' };
+
+  const db = createServerClient();
+  const now = new Date().toISOString();
+
+  const { data: attendee, error: attendeeError } = await db
+    .from('attendees')
+    .select('id,event_id,mobile,contact_id')
+    .eq('id', id)
+    .single();
+
+  if (attendeeError || !attendee) return { success: false, error: 'Attendee not found' };
+
+  const { error: updateError } = await db
+    .from('attendees')
+    .update({
+      whatsapp_status: 'sent',
+      whatsapp_sent_marked_at: now,
+    })
+    .eq('id', attendee.id);
+
+  if (updateError) {
+    console.error('markAttendeePassSent attendee update error:', updateError);
+    return { success: false, error: 'Failed to mark pass as sent' };
+  }
+
+  let contactId = attendee.contact_id;
+  if (!contactId) {
+    const { data: contact } = await db
+      .from('contacts')
+      .select('id')
+      .eq('event_id', attendee.event_id)
+      .eq('mobile', attendee.mobile)
+      .maybeSingle();
+    contactId = contact?.id || null;
+  }
+
+  if (contactId) {
+    const { data: contact } = await db
+      .from('contacts')
+      .select('id,status,invited_at')
+      .eq('id', contactId)
+      .maybeSingle();
+
+    const contactUpdate: Record<string, string | null> = {
+      attendee_id: attendee.id,
+      whatsapp_invite_status: 'sent',
+      invited_at: contact?.invited_at || now,
+    };
+    if (contact?.status === 'uploaded') contactUpdate.status = 'invited';
+
+    await db.from('contacts').update(contactUpdate).eq('id', contactId);
+    if (!attendee.contact_id) {
+      await db.from('attendees').update({ contact_id: contactId }).eq('id', attendee.id);
+    }
+  }
+
+  await db.from('message_logs').insert({
+    event_id: attendee.event_id,
+    attendee_id: attendee.id,
+    mobile: attendee.mobile,
+    message_text: 'Pass sent manually from attendee desk.',
+    whatsapp_link: 'manual-whatsapp://attendees',
+    status: 'sent',
+  });
+
+  return { success: true };
+}
+
 // ── Delete Attendee (hard delete — justified below) ───────
 // Hard delete chosen over soft delete because:
 // 1. MVP scope — no audit trail requirement yet

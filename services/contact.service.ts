@@ -173,6 +173,122 @@ export async function markInviteSent(
   return { success: true };
 }
 
+type ContactPassDelivery = {
+  id: string;
+  contact_id: string | null;
+  mobile: string;
+  whatsapp_status: 'pending' | 'ready' | 'sent' | 'opened' | 'failed';
+  whatsapp_sent_marked_at: string | null;
+  pass_generated_at: string | null;
+  pass_url: string | null;
+};
+
+function enrichContactsWithPassDelivery(
+  contacts: ContactResponse[],
+  attendees: ContactPassDelivery[]
+): ContactResponse[] {
+  const byAttendeeId = new Map(attendees.map((attendee) => [attendee.id, attendee]));
+  const byContactId = new Map(
+    attendees
+      .filter((attendee) => attendee.contact_id)
+      .map((attendee) => [attendee.contact_id as string, attendee])
+  );
+  const byMobile = new Map(attendees.map((attendee) => [attendee.mobile, attendee]));
+
+  return contacts.map((contact) => {
+    const attendee =
+      byContactId.get(contact.id) ||
+      (contact.attendee_id ? byAttendeeId.get(contact.attendee_id) : undefined) ||
+      byMobile.get(contact.mobile);
+
+    if (!attendee) return contact;
+
+    return {
+      ...contact,
+      attendee_id: contact.attendee_id || attendee.id,
+      pass_whatsapp_status: attendee.whatsapp_status,
+      pass_whatsapp_sent_at: attendee.whatsapp_sent_marked_at,
+      pass_generated_at: attendee.pass_generated_at,
+      pass_url: attendee.pass_url,
+    };
+  });
+}
+
+export async function markContactPassSent(
+  contactId: string
+): Promise<{ success: boolean; error?: string }> {
+  const db = createServerClient();
+  const now = new Date().toISOString();
+
+  const { data: contact, error: contactError } = await db
+    .from('contacts')
+    .select('id,event_id,mobile,status,attendee_id,invited_at')
+    .eq('id', contactId)
+    .single();
+
+  if (contactError || !contact) return { success: false, error: 'Contact not found' };
+
+  let attendeeQuery = db
+    .from('attendees')
+    .select('id,event_id,mobile,contact_id,pass_url')
+    .eq('event_id', contact.event_id)
+    .limit(1);
+
+  attendeeQuery = contact.attendee_id
+    ? attendeeQuery.eq('id', contact.attendee_id)
+    : attendeeQuery.eq('mobile', contact.mobile);
+
+  const { data: attendees, error: attendeeError } = await attendeeQuery;
+  const attendee = attendees?.[0];
+
+  if (attendeeError || !attendee) {
+    return { success: false, error: 'No generated pass found for this contact yet' };
+  }
+
+  const { error: attendeeUpdateError } = await db
+    .from('attendees')
+    .update({
+      whatsapp_status: 'sent',
+      whatsapp_sent_marked_at: now,
+      contact_id: attendee.contact_id || contact.id,
+    })
+    .eq('id', attendee.id)
+    .eq('event_id', contact.event_id);
+
+  if (attendeeUpdateError) {
+    console.error('markContactPassSent attendee update error:', attendeeUpdateError);
+    return { success: false, error: 'Failed to mark pass as sent' };
+  }
+
+  const contactUpdate: Record<string, string | null> = {
+    attendee_id: attendee.id,
+    whatsapp_invite_status: 'sent',
+    invited_at: contact.invited_at || now,
+  };
+  if (contact.status === 'uploaded') contactUpdate.status = 'invited';
+
+  const { error: contactUpdateError } = await db
+    .from('contacts')
+    .update(contactUpdate)
+    .eq('id', contact.id);
+
+  if (contactUpdateError) {
+    console.error('markContactPassSent contact update error:', contactUpdateError);
+    return { success: false, error: 'Pass marked, but contact sync failed' };
+  }
+
+  await db.from('message_logs').insert({
+    event_id: contact.event_id,
+    attendee_id: attendee.id,
+    mobile: contact.mobile,
+    message_text: 'Marked as pass sent manually from Contacts & Invites.',
+    whatsapp_link: 'manual-whatsapp://contacts',
+    status: 'sent',
+  });
+
+  return { success: true };
+}
+
 // ── List Contacts (paginated, filterable) ─────────────────
 
 export async function listContacts(params: {
@@ -214,10 +330,41 @@ export async function listContacts(params: {
     return { error: 'Failed to fetch contacts' };
   }
 
+  const contacts = (data || []) as ContactResponse[];
+  const attendeeIds = contacts
+    .map((contact) => contact.attendee_id)
+    .filter((id): id is string => Boolean(id));
+  const mobiles = contacts.map((contact) => contact.mobile);
+  const attendeeMap = new Map<string, ContactPassDelivery>();
+
+  if (attendeeIds.length > 0) {
+    const { data: attendeesById } = await db
+      .from('attendees')
+      .select('id,contact_id,mobile,whatsapp_status,whatsapp_sent_marked_at,pass_generated_at,pass_url')
+      .eq('event_id', event_id)
+      .in('id', attendeeIds);
+
+    for (const attendee of (attendeesById || []) as ContactPassDelivery[]) {
+      attendeeMap.set(attendee.id, attendee);
+    }
+  }
+
+  if (mobiles.length > 0) {
+    const { data: attendeesByMobile } = await db
+      .from('attendees')
+      .select('id,contact_id,mobile,whatsapp_status,whatsapp_sent_marked_at,pass_generated_at,pass_url')
+      .eq('event_id', event_id)
+      .in('mobile', mobiles);
+
+    for (const attendee of (attendeesByMobile || []) as ContactPassDelivery[]) {
+      attendeeMap.set(attendee.id, attendee);
+    }
+  }
+
   const total = count || 0;
   return {
     data: {
-      contacts: (data || []) as ContactResponse[],
+      contacts: enrichContactsWithPassDelivery(contacts, [...attendeeMap.values()]),
       total,
       page,
       per_page,

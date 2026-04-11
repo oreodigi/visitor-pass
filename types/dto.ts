@@ -166,6 +166,10 @@ export interface ContactResponse {
   invited_at: string | null;
   responded_at: string | null;
   attendee_id: string | null;
+  pass_whatsapp_status?: WhatsAppStatus | null;
+  pass_whatsapp_sent_at?: string | null;
+  pass_generated_at?: string | null;
+  pass_url?: string | null;
   created_at: string;
   updated_at: string;
 }

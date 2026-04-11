@@ -6,6 +6,7 @@ import { apiSuccess, apiError, parsePagination } from '@/lib/utils';
 import {
   createAttendee,
   updateAttendee,
+  markAttendeePassSent,
   deleteAttendee,
   getAttendeeById,
   listAttendees,
@@ -92,6 +93,28 @@ export async function PUT(request: NextRequest) {
   } catch (err) {
     if (err instanceof AuthError) return apiError(err.message, err.status);
     console.error('PUT /api/attendees error:', err);
+    return apiError('Internal server error', 500);
+  }
+}
+
+// PATCH /api/attendees - operational actions
+export async function PATCH(request: NextRequest) {
+  try {
+    await requireRole('admin');
+
+    const body = await request.json();
+    if (!body.id) return apiError('Attendee ID is required', 400);
+
+    if (body.action === 'mark_pass_sent') {
+      const result = await markAttendeePassSent(body.id);
+      if (!result.success) return apiError(result.error || 'Failed to update attendee', 400);
+      return apiSuccess({ updated: true });
+    }
+
+    return apiError('Unknown action', 400);
+  } catch (err) {
+    if (err instanceof AuthError) return apiError(err.message, err.status);
+    console.error('PATCH /api/attendees error:', err);
     return apiError('Internal server error', 500);
   }
 }
